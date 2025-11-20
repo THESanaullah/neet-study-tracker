@@ -14,17 +14,21 @@ NEET_SYLLABUS = {
         'Properties of Liquids'
         'Thermodynamics',
         'Kinetic Theory of Gases',
-        'Oscillations and Waves',
-        'Electrostatics',
+        'Oscillations',
+        'Waves',
+        'Electric Charges and current',
+        'Electrostatic Potential'
         'Current Electricity',
-        'Magnetic Effects of Current and Magnetism',
-        'Electromagnetic Induction and Alternating Currents',
+        'Magnetic Effects of Current',
+        'Matter and Magnetism',
+        'Electromagnetic Induction',
+        'Alternating Currents',
         'Electromagnetic Waves',
-        'Optics',
+        'Wave Optics',
+        'Ray Optics',
         'Dual Nature of Matter and Radiation',
         'Atoms and Nuclei',
-        'Electronic Devices',
-        'Communication Systems'
+        'Semiconductor'
     ],
     'Chemistry': [
         'Some Basic Concepts of Chemistry',

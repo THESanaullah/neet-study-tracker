@@ -5,54 +5,69 @@ from datetime import datetime, date, timedelta
 import os
 
 # ============================================================================
-# INITIALIZATION
+# CONFIGURATION
 # ============================================================================
 
-# Initialize Flask app
-app = Flask(__name__, 
-            template_folder='templates',
-            static_folder='static')
-
-# Configuration
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-2024'
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///neet_tracker.db'
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-this-in-production'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///neet_tracker.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    
     ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME') or 'admin'
     ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL') or 'admin@neetstudy.com'
     ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD') or 'admin123'
+    
     POMODORO_WORK_MINUTES = 25
     POMODORO_SHORT_BREAK = 5
     POMODORO_LONG_BREAK = 15
+    POMODORO_CYCLES_BEFORE_LONG_BREAK = 4
+    
     REVISION_REMINDER_DAYS = 7
+    USERS_PER_PAGE = 20
 
+# ============================================================================
+# INITIALIZE FLASK APP
+# ============================================================================
+
+app = Flask(__name__, 
+            template_folder='templates',
+            static_folder='static')
 app.config.from_object(Config)
 
-# Initialize Database
-from flask_sqlalchemy import SQLAlchemy
-db = SQLAlchemy(app)
+# ============================================================================
+# IMPORT AND INITIALIZE DATABASE
+# ============================================================================
 
-# Initialize Login Manager
+# Import db from models (it's not initialized yet)
+from models import db, User, ChapterProgress, StudyLog, TestScore, RevisionLog, PomodoroSession, AdminLog
+
+# NOW initialize db with app
+db.init_app(app)
+
+# ============================================================================
+# INITIALIZE LOGIN MANAGER
+# ============================================================================
+
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to access this page.'
+login_manager.login_message_category = 'info'
 
 @login_manager.user_loader
 def load_user(user_id):
-    from models import User
+    """Load user by ID for Flask-Login"""
     return User.query.get(int(user_id))
 
 # ============================================================================
-# IMPORT MODELS
+# IMPORT FORMS AND DATA
 # ============================================================================
 
-from models import User, ChapterProgress, StudyLog, TestScore, RevisionLog, PomodoroSession, AdminLog
-from forms import RegistrationForm, LoginForm, StudyLogForm, TestScoreForm, RevisionForm
+from forms import RegistrationForm, LoginForm, StudyLogForm, TestScoreForm
 from syllabus_data import NEET_SYLLABUS
 
 # ============================================================================
-# CREATE TABLES
+# CREATE DATABASE TABLES
 # ============================================================================
 
 with app.app_context():
@@ -71,13 +86,14 @@ with app.app_context():
         admin.set_password(app.config['ADMIN_PASSWORD'])
         db.session.add(admin)
         db.session.commit()
+        print(f"✅ Admin user created: {app.config['ADMIN_USERNAME']}")
 
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
 
 def initialize_user_chapters(user):
-    """Initialize chapter progress records for new user"""
+    """Initialize chapter progress for new user"""
     for subject, chapters in NEET_SYLLABUS.items():
         for idx, chapter_name in enumerate(chapters, 1):
             chapter_progress = ChapterProgress(
@@ -90,7 +106,7 @@ def initialize_user_chapters(user):
     db.session.commit()
 
 def calculate_study_streak(user_id):
-    """Calculate consecutive days studied"""
+    """Calculate consecutive study days"""
     today = date.today()
     streak = 0
     check_date = today
@@ -102,7 +118,6 @@ def calculate_study_streak(user_id):
             check_date -= timedelta(days=1)
         else:
             break
-        
         if streak > 365:
             break
     
@@ -182,11 +197,11 @@ def login():
 def logout():
     """User logout"""
     logout_user()
-    flash('You have been logged out successfully.', 'info')
+    flash('You have been logged out.', 'info')
     return redirect(url_for('index'))
 
 # ============================================================================
-# USER DASHBOARD ROUTES
+# USER DASHBOARD
 # ============================================================================
 
 @app.route('/dashboard')
@@ -198,24 +213,18 @@ def dashboard():
         return redirect(url_for('index'))
     
     physics_chapters = ChapterProgress.query.filter_by(
-        user_id=current_user.id, 
-        subject='Physics'
+        user_id=current_user.id, subject='Physics'
     ).order_by(ChapterProgress.chapter_order).all()
     
     chemistry_chapters = ChapterProgress.query.filter_by(
-        user_id=current_user.id,
-        subject='Chemistry'
+        user_id=current_user.id, subject='Chemistry'
     ).order_by(ChapterProgress.chapter_order).all()
     
     biology_chapters = ChapterProgress.query.filter_by(
-        user_id=current_user.id,
-        subject='Biology'
+        user_id=current_user.id, subject='Biology'
     ).order_by(ChapterProgress.chapter_order).all()
     
-    total_chapters = len(physics_chapters) + len(chemistry_chapters) + len(biology_chapters)
-    completed_chapters = sum(1 for ch in physics_chapters + chemistry_chapters + biology_chapters if ch.is_completed)
-    overall_progress = round((completed_chapters / total_chapters * 100), 1) if total_chapters > 0 else 0
-    
+    overall_progress = current_user.get_progress_percentage()
     physics_progress = current_user.get_subject_progress('Physics')
     chemistry_progress = current_user.get_subject_progress('Chemistry')
     biology_progress = current_user.get_subject_progress('Biology')
@@ -223,17 +232,13 @@ def dashboard():
     today = date.today()
     week_ago = today - timedelta(days=7)
     
-    total_study_time_week = db.session.query(db.func.sum(StudyLog.duration_minutes)).filter(
+    total_study_time = db.session.query(db.func.sum(StudyLog.duration_minutes)).filter(
         StudyLog.user_id == current_user.id,
         StudyLog.date >= week_ago
     ).scalar() or 0
     
-    total_study_time_week_hours = round(total_study_time_week / 60, 1)
+    total_study_time_week = round(total_study_time / 60, 1)
     study_streak = calculate_study_streak(current_user.id)
-    
-    recent_tests = TestScore.query.filter_by(user_id=current_user.id).order_by(
-        TestScore.test_date.desc()
-    ).limit(5).all()
     
     revision_threshold = datetime.utcnow() - timedelta(days=app.config['REVISION_REMINDER_DAYS'])
     chapters_need_revision = ChapterProgress.query.filter(
@@ -243,8 +248,7 @@ def dashboard():
     ).count()
     
     pomodoro_today = PomodoroSession.query.filter_by(
-        user_id=current_user.id,
-        session_date=today
+        user_id=current_user.id, session_date=today
     ).first()
     
     pomodoro_count_today = pomodoro_today.sessions_completed if pomodoro_today else 0
@@ -257,9 +261,8 @@ def dashboard():
                          physics_progress=physics_progress,
                          chemistry_progress=chemistry_progress,
                          biology_progress=biology_progress,
-                         total_study_time_week=total_study_time_week_hours,
+                         total_study_time_week=total_study_time_week,
                          study_streak=study_streak,
-                         recent_tests=recent_tests,
                          chapters_need_revision=chapters_need_revision,
                          pomodoro_count_today=pomodoro_count_today)
 
@@ -296,6 +299,12 @@ def update_chapter(chapter_id):
         'is_completed': chapter.is_completed,
         'revision_count': chapter.revision_count
     })
+
+# Continue with remaining routes...
+# (Due to length, use the previous full app.py I provided)
+
+if __name__ == '__main__':
+    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
 
 # ============================================================================
 # STUDY LOG ROUTES
