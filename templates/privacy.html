@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Privacy Policy - NEET Study Tracker{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+    <h1>Privacy Policy</h1>
+    <p class="text-muted"><strong>Last Updated:</strong> November 20, 2025</p>
+    
+    <div class="card" style="margin-top: 2rem;">
+        <div class="card-body">
+            <p>Your privacy is important to us. This Privacy Policy explains how NEET Study Tracker collects, uses, and protects your personal information.</p>
+            
+            <h2>1. Information We Collect</h2>
+            
+            <h3>1.1 Information You Provide</h3>
+            <p>When you register and use our platform, we collect:</p>
+            <ul>
+                <li><strong>Account Information:</strong> Username, email address, full name (optional), target exam year (optional)</li>
+                <li><strong>Study Data:</strong> Chapter progress, study time logs, test scores, revision history</li>
+                <li><strong>Notes:</strong> Any personal notes you add to study logs or test records</li>
+            </ul>
+            
+            <h3>1.2 Automatically Collected Information</h3>
+            <ul>
+                <li><strong>Usage Data:</strong> Pages visited, features used, time spent on platform</li>
+                <li><strong>Device Information:</strong> Browser type, operating system, IP address</li>
+                <li><strong>Cookies:</strong> Session cookies to maintain your login state</li>
+            </ul>
+            
+            <h2>2. How We Use Your Information</h2>
+            <p>We use your information to:</p>
+            <ul>
+                <li>Provide and maintain the study tracking service</li>
+                <li>Create and manage your account</li>
+                <li>Store your progress data and preferences</li>
+                <li>Generate progress charts and statistics</li>
+                <li>Send revision reminders (if enabled)</li>
+                <li>Improve our platform based on usage patterns</li>
+                <li>Communicate important updates about the service</li>
+                <li>Ensure security and prevent fraud</li>
+            </ul>
+            
+            <h2>3. Data Storage and Security</h2>
+            
+            <h3>3.1 Where Your Data is Stored</h3>
+            <p>Your data is stored securely on servers provided by our hosting partner (Render.com). Data is stored in secure data centers with industry-standard security measures.</p>
+            
+            <h3>3.2 Security Measures</h3>
+            <ul>
+                <li>Passwords are encrypted using industry-standard hashing (SHA-256)</li>
+                <li>All connections use HTTPS/SSL encryption</li>
+                <li>Regular security updates and patches</li>
+                <li>Access controls and authentication</li>
+                <li>Database backups for disaster recovery</li>
+            </ul>
+            
+            <h3>3.3 Data Retention</h3>
+            <p>We retain your data for as long as your account is active. If you delete your account, your data is permanently removed within 30 days.</p>
+            
+            <h2>4. Information Sharing</h2>
+            
+            <h3>4.1 We DO NOT Sell Your Data</h3>
+            <p><strong>We never sell, rent, or trade your personal information to third parties for marketing purposes.</strong></p>
+            
+            <h3>4.2 Limited Sharing</h3>
+            <p>We may share information only in these limited circumstances:</p>
+            <ul>
+                <li><strong>With Your Consent:</strong> When you explicitly authorize us to share information</li>
+                <li><strong>Service Providers:</strong> Third-party services that help us operate (hosting, analytics) under strict confidentiality agreements</li>
+                <li><strong>Legal Requirements:</strong> When required by law, court order, or legal process</li>
+                <li><strong>Safety and Security:</strong> To protect rights, property, or safety of users and the public</li>
+            </ul>
+            
+            <h3>4.3 Admin Access</h3>
+            <p>Platform administrators can view user data for:</p>
+            <ul>
+                <li>Account approval and management</li>
+                <li>Technical support and troubleshooting</li>
+                <li>Monitoring platform usage and performance</li>
+            </ul>
+            <p>Administrators are bound by confidentiality and may not misuse your data.</p>
+            
+            <h2>5. Your Rights and Choices</h2>
+            
+            <h3>5.1 Access and Download</h3>
+            <p>You can access all your data through your dashboard at any time. You can export or download your progress data.</p>
+            
+            <h3>5.2 Correction</h3>
+            <p>You can update your account information and study data at any time through your account settings.</p>
+            
+            <h3>5.3 Deletion</h3>
+            <p>You can request account deletion by contacting the administrator. All your data will be permanently deleted within 30 days.</p>
+            
+            <h3>5.4 Opt-Out</h3>
+            <p>You can opt out of non-essential communications at any time.</p>
+            
+            <h2>6. Cookies</h2>
+            <p>We use essential cookies to:</p>
+            <ul>
+                <li>Keep you logged in during your session</li>
+                <li>Remember your preferences</li>
+                <li>Ensure platform functionality</li>
+            </ul>
+            <p>You can disable cookies in your browser, but this may affect platform functionality.</p>
+            
+            <h2>7. Children's Privacy</h2>
+            <p>While NEET aspirants include teenagers, users under 13 are not permitted to create accounts. If you are 13-17 years old, you should use this platform with parental supervision.</p>
+            
+            <h2>8. Third-Party Links</h2>
+            <p>Our platform may contain links to external websites. We are not responsible for the privacy practices of third-party sites. Please review their privacy policies.</p>
+            
+            <h2>9. Data Breach Notification</h2>
+            <p>In the unlikely event of a data breach affecting your personal information, we will notify you within 72 hours via email and provide details about the incident and steps we're taking.</p>
+            
+            <h2>10. International Users</h2>
+            <p>This service is primarily designed for users in India. If you access the platform from outside India, please be aware that your data may be transferred to and stored in India.</p>
+            
+            <h2>11. Changes to Privacy Policy</h2>
+            <p>We may update this Privacy Policy from time to time. We will notify you of significant changes by:</p>
+            <ul>
+                <li>Posting a notice on the platform</li>
+                <li>Sending an email notification</li>
+                <li>Updating the "Last Updated" date</li>
+            </ul>
+            <p>Your continued use after changes constitutes acceptance of the updated policy.</p>
+            
+            <h2>12. Contact Us</h2>
+            <p>If you have questions, concerns, or requests regarding this Privacy Policy or your personal data, please contact us through the <a href="{{ url_for('contact') }}">Contact Page</a>.</p>
+            
+            <h2>13. Your Consent</h2>
+            <p>By using NEET Study Tracker, you consent to this Privacy Policy and agree to its terms.</p>
+            
+            <hr style="margin: 2rem 0;">
+            
+            <p><strong>Summary:</strong> We collect only necessary information to provide the service, we never sell your data, we protect it with strong security measures, and you have full control over your information.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

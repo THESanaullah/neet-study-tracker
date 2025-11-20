@@ -303,6 +303,37 @@ def update_chapter(chapter_id):
 # Continue with remaining routes...
 # (Due to length, use the previous full app.py I provided)
 
+# ============================================================================
+# LEGAL PAGES ROUTES
+# ============================================================================
+
+@app.route('/about')
+def about():
+    """About page"""
+    return render_template('about.html')
+
+@app.route('/terms')
+def terms():
+    """Terms and conditions"""
+    return render_template('terms.html')
+
+@app.route('/privacy')
+def privacy():
+    """Privacy policy"""
+    return render_template('privacy.html')
+
+@app.route('/disclaimer')
+def disclaimer():
+    """Disclaimer page"""
+    return render_template('disclaimer.html')
+
+@app.route('/contact')
+def contact():
+    """Contact page"""
+    return render_template('contact.html')
+
+
+
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
 

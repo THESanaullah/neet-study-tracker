@@ -3,11 +3,14 @@
 
 NEET_SYLLABUS = {
     'Physics': [
+        'Basic Maths',
+        "Vectors",
         'Units and Measurement',
         'Motion in straight lines',
         'Motion in planes'
         'Laws of Motion',
         'Work, Energy and Power',
+        'Centre of mass and System of Particles',
         'Rotational Motion',
         'Gravitation',
         'Properties of Solids',
@@ -17,9 +20,9 @@ NEET_SYLLABUS = {
         'Oscillations',
         'Waves',
         'Electric Charges and current',
-        'Electrostatic Potential'
+        'Electrostatic Potential and Capacitance'
         'Current Electricity',
-        'Magnetic Effects of Current',
+        'Moving Charges and Magnetism',
         'Matter and Magnetism',
         'Electromagnetic Induction',
         'Alternating Currents',
@@ -27,57 +30,75 @@ NEET_SYLLABUS = {
         'Wave Optics',
         'Ray Optics',
         'Dual Nature of Matter and Radiation',
-        'Atoms and Nuclei',
+        'Atoms',
+        'Nuclei',
         'Semiconductor'
     ],
     'Chemistry': [
         'Some Basic Concepts of Chemistry',
-        'Atomic Structure',
-        'Chemical Bonding and Molecular Structure',
-        'Chemical Thermodynamics',
+        'Redox Reactions',
+        'Thermodynamics',
+        'Chemical Equilibrium',
+        'Ionic Equilibrium'
         'Solutions',
-        'Equilibrium',
-        'Redox Reactions and Electrochemistry',
+        'Electrochemistry',
         'Chemical Kinetics',
+        'Atomic Structure',
+        'Practical Physical Chemistry'
         'Classification of Elements and Periodicity in Properties',
+        'Chemical Bonding and Molecular Structure',
+        'Coordination Compounds',
         'P-Block Elements',
         'D and F Block Elements',
-        'Coordination Compounds',
-        'Purification and Characterisation of Organic Compounds',
-        'Some Basic Principles of Organic Chemistry',
+        'Salt analysis',
+        'IUPAC',
+        'Isomerism',
+        'GOC',
         'Hydrocarbons',
-        'Organic Compounds Containing Halogens',
-        'Organic Compounds Containing Oxygen',
-        'Organic Compounds Containing Nitrogen',
-        'Biomolecules',
-        'Principles Related to Practical Chemistry',
-        'Environmental Chemistry'
+        'Haloalkanes and Haloarenes',
+        'Alcohols, Ethers and Phenols',
+        'Aldehydes, Ketones and Carboxylic Acids',
+        'Amines',
+        'Biomolecule',
+        'Purification and Analysis of Organic Compounds',
     ],
     'Biology': [
         # Botany
-        'Diversity in Living World',
-        'Structural Organisation in Plants',
         'Cell Structure and Function',
-        'Plant Physiology',
-        'Human Physiology',
-        'Reproduction',
-        'Genetics and Evolution',
-        'Biology and Human Welfare',
-        'Biotechnology and Its Applications',
-        'Ecology and Environment',
-        # Zoology
-        'Structural Organisation in Animals',
-        'Human Reproduction',
-        'Reproductive Health',
-        'Principles of Inheritance and Variation',
+        'Cell Cycle'
+        'The living world',
+        'Biological classification',
+        'Plant Kingdom',
+        'Morphology of Flowering Plants'
+        'Anatomy of Flowering Plants',
+        'Respiration in Plants',
+        'Photosynthesis in Higher Plant',
+        'Plant Growth and Development',
+        'Sexual Reproduction in Flowering plants',
         'Molecular Basis of Inheritance',
-        'Evolution',
-        'Human Health and Disease',
-        'Strategies for Enhancement in Food Production',
+        'Principles of Inheritance and Variation',
         'Microbes in Human Welfare',
         'Organisms and Populations',
         'Ecosystem',
-        'Biodiversity and Conservation'
+        'Biodiversity and Conservation',
+        
+        # Zoology
+        'Structural Organisation in Animals',
+        'Breathing and Exchange of Gases',
+        'Body Fluids and Circulation',
+        'Excretory Products & their Elimination',
+        'Locomotion & Movement',
+        'Neural Control & Coordination',
+        'Chemical Coordination & Integration',
+        'Animal Kingdom',
+        'Biomolecules',
+        'Human Reproduction',
+        'Reproductive Health',
+        'Biotechnology: Principles & Processes',
+        'Biotechnology and its Applications',
+        'Evolution'
+        
+        
     ]
 }
 
