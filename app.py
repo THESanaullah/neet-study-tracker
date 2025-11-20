@@ -1331,53 +1331,6 @@ def internal_error(error):
 # RUN
 # ============================================================================
 
-# ============================================================================
-# TEMPORARY MIGRATION ROUTE (Remove after running once)
-# ============================================================================
-
-@app.route('/admin/migrate_db')
-@login_required
-def migrate_db():
-    """One-time database migration"""
-    if not current_user.is_admin:
-        return "Access denied", 403
-    
-    try:
-        # Add new columns to users table
-        with db.engine.connect() as conn:
-            # Check if columns already exist
-            result = conn.execute(db.text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name='users' AND column_name='must_change_password'
-            """))
-            
-            if result.fetchone() is None:
-                # Columns don't exist, add them
-                conn.execute(db.text("ALTER TABLE users ADD COLUMN must_change_password BOOLEAN DEFAULT FALSE"))
-                conn.execute(db.text("ALTER TABLE users ADD COLUMN password_changed_at TIMESTAMP"))
-                conn.execute(db.text("ALTER TABLE users ADD COLUMN password_reset_by_id INTEGER REFERENCES users(id)"))
-                conn.commit()
-                
-                return """
-                <h1>✅ Migration Successful!</h1>
-                <p>New password management fields have been added to the database.</p>
-                <p><a href="/admin/dashboard">Go to Admin Dashboard</a></p>
-                <p><strong>Note:</strong> You can now remove the /admin/migrate_db route from app.py</p>
-                """
-            else:
-                return """
-                <h1>✅ Already Migrated</h1>
-                <p>The database already has the password management fields.</p>
-                <p><a href="/admin/dashboard">Go to Admin Dashboard</a></p>
-                """
-    except Exception as e:
-        db.session.rollback()
-        return f"""
-        <h1>❌ Migration Failed</h1>
-        <p>Error: {str(e)}</p>
-        <p><a href="/admin/dashboard">Go back</a></p>
-        """
 
 
 if __name__ == '__main__':
