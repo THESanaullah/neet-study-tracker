@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Test Tracker - NEET Study Tracker{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <h1>📝 Mock Test Tracker</h1>
+    <p class="text-muted">Log your test scores and track performance over time</p>
+</div>
+
+<!-- Add New Test Form -->
+<div class="card" style="margin-bottom: 2rem;">
+    <div class="card-header">
+        <h3 class="card-title">➕ Log New Test Score</h3>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('test_tracker') }}">
+            {{ form.hidden_tag() }}
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                <div class="form-group">
+                    <label for="test_name" class="form-label">Test Name *</label>
+                    {{ form.test_name(class="form-control", id="test_name") }}
+                    {% if form.test_name.errors %}
+                        <div class="form-error">{{ form.test_name.errors[0] }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="form-group">
+                    <label for="test_date" class="form-label">Test Date *</label>
+                    {{ form.test_date(class="form-control", id="test_date") }}
+                    {% if form.test_date.errors %}
+                        <div class="form-error">{{ form.test_date.errors[0] }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="form-group">
+                    <label for="test_type" class="form-label">Test Type *</label>
+                    {{ form.test_type(class="form-control", id="test_type") }}
+                    {% if form.test_type.errors %}
+                        <div class="form-error">{{ form.test_type.errors[0] }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <hr style="margin: 1.5rem 0;">
+            <h4 style="margin-bottom: 1rem;">Subject-wise Scores (Optional)</h4>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                <div class="form-group">
+                    <label for="physics_score" class="form-label">Physics Score</label>
+                    {{ form.physics_score(class="form-

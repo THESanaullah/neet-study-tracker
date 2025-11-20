@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>📅 Study Time Log</h1>
+<div class="dashboard-grid">
+    <div class="card"><h3>Total: {{ total_hours }}h</h3></div>
+    <div class="card"><h3>Average: {{ avg_hours }}h/day</h3></div>
+</div>
+<div class="card">
+    <div class="card-header"><h3>Log New Session</h3></div>
+    <div class="card-body">
+        <form method="POST">
+            {{ form.hidden_tag() }}
+            {{ form.date.label }} {{ form.date(class="form-control") }}
+            {{ form.subject.label }} {{ form.subject(class="form-control") }}
+            {{ form.duration_minutes.label }} {{ form.duration_minutes(class="form-control") }}
+            {{ form.notes.label }} {{ form.notes(class="form-control") }}
+            {{ form.submit(class="btn btn-primary") }}
+        </form>
+    </div>
+</div>
+<div class="card"><canvas id="study-time-chart" data-days="30"></canvas></div>
+{% endblock %}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+{% endblock %}

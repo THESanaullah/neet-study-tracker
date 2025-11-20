@@ -1,0 +1,168 @@
+{% extends "admin/admin_base.html" %}
+
+{% block title %}Manage Users - Admin Panel{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Inline styles moved to proper CSS */
+.user-actions-container {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+
+.inline-form {
+    display: inline;
+}
+
+.progress-cell {
+    height: 1rem;
+    width: 100px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <h1>👥 Manage Users</h1>
+    <p class="text-muted">View, monitor, and manage all registered users</p>
+</div>
+
+{% if users.items|length > 0 %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">All Registered Users ({{ users.total }})</h3>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Full Name</th>
+                        <th>Target Year</th>
+                        <th>Registered</th>
+                        <th>Last Login</th>
+                        <th>Status</th>
+                        <th>Progress</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users.items %}
+                    <tr>
+                        <td>{{ user.id }}</td>
+                        <td><strong>{{ user.username }}</strong></td>
+                        <td>{{ user.email }}</td>
+                        <td>{{ user.full_name or '-' }}</td>
+                        <td>{{ user.target_exam_year or '-' }}</td>
+                        <td>{{ user.created_at.strftime('%d/%m/%Y') }}</td>
+                        <td>
+                            {% if user.last_login %}
+                                {% set days_ago = (now - user.last_login).days %}
+                                {{ user.last_login.strftime('%d/%m/%Y') }}
+                                <br><small class="text-muted">{{ days_ago }} days ago</small>
+                            {% else %}
+                                <span class="text-muted">Never</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.is_active %}
+                                <span class="badge badge-success">✓ Active</span>
+                            {% else %}
+                                <span class="badge badge-warning">⏳ Pending</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set progress = user.get_progress_percentage() %}
+                            <div class="progress progress-cell">
+                                <div class="progress-bar" style="width: {{ progress }}%;">
+                                    {{ progress }}%
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="user-actions-container">
+                                <a href="{{ url_for('view_user_progress', user_id=user.id) }}" 
+                                   class="btn btn-sm btn-primary" title="View Progress">
+                                    👁️
+                                </a>
+                                
+                                {% if user.is_active %}
+                                    <form method="POST" action="{{ url_for('deactivate_user', user_id=user.id) }}" class="inline-form">
+                                        <button type="submit" class="btn btn-sm btn-warning" title="Deactivate"
+                                                onclick="return confirm('Deactivate user {{ user.username }}?');">
+                                            ⏸️
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    <form method="POST" action="{{ url_for('approve_user', user_id=user.id) }}" class="inline-form">
+                                        <button type="submit" class="btn btn-sm btn-success" title="Activate"
+                                                onclick="return confirm('Activate user {{ user.username }}?');">
+                                            ▶️
+                                        </button>
+                                    </form>
+                                {% endif %}
+                                
+                                <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" class="inline-form">
+                                    <button type="submit" class="btn btn-sm btn-danger" title="Delete Permanently"
+                                            onclick="return confirm('PERMANENTLY DELETE user {{ user.username }}? This cannot be undone!');">
+                                        🗑️
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if users.pages > 1 %}
+<div class="mt-8 text-center">
+    <div class="d-flex justify-center gap-2" style="display: inline-flex; gap: 0.5rem; flex-wrap: wrap;">
+        {% if users.has_prev %}
+            <a href="{{ url_for('manage_users', page=users.prev_num) }}" class="btn btn-outline">← Previous</a>
+        {% endif %}
+        
+        {% for page_num in users.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+            {% if page_num %}
+                {% if page_num == users.page %}
+                    <span class="btn btn-primary">{{ page_num }}</span>
+                {% else %}
+                    <a href="{{ url_for('manage_users', page=page_num) }}" class="btn btn-outline">{{ page_num }}</a>
+                {% endif %}
+            {% else %}
+                <span class="btn btn-outline" disabled>...</span>
+            {% endif %}
+        {% endfor %}
+        
+        {% if users.has_next %}
+            <a href="{{ url_for('manage_users', page=users.next_num) }}" class="btn btn-outline">Next →</a>
+        {% endif %}
+    </div>
+    <p class="text-muted mt-4">
+        Page {{ users.page }} of {{ users.pages }} ({{ users.total }} total users)
+    </p>
+</div>
+{% endif %}
+
+{% else %}
+
+<div class="card">
+    <div class="card-body text-center p-6">
+        <div style="font-size: 4rem; margin-bottom: 1rem;">👥</div>
+        <h3>No Users Found</h3>
+        <p class="text-muted">No registered users in the system yet.</p>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-primary">Back to Dashboard</a>
+    </div>
+</div>
+
+{% endif %}
+
+{% endblock %}
