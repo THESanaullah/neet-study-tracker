@@ -8,6 +8,36 @@
     <h1 style="margin-top: 1rem;">User Progress: {{ user.username }}</h1>
     <p class="text-muted">Read-only view of user's study dashboard</p>
 </div>
+<!-- Add this near the top where user info is displayed -->
+<div class="card" style="margin-bottom: 2rem;">
+    <div class="card-body">
+        <h2>User: {{ user.username }}</h2>
+        <p><strong>Email:</strong> {{ user.email }}</p>
+        <p><strong>Status:</strong> 
+            {% if user.is_active %}
+                <span class="badge badge-success">Active</span>
+            {% else %}
+                <span class="badge badge-warning">Inactive</span>
+            {% endif %}
+        </p>
+        
+        <!-- ADD THIS SECTION -->
+        <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a href="{{ url_for('admin_reset_user_password', user_id=user.id) }}" 
+               class="btn btn-warning btn-sm">
+                🔐 Reset Password
+            </a>
+            
+            <form method="POST" action="{{ url_for('admin_generate_temp_password', user_id=user.id) }}" 
+                  style="display: inline;">
+                <button type="submit" class="btn btn-secondary btn-sm"
+                        onclick="return confirm('Generate temporary password for {{ user.username }}?');">
+                    🔄 Generate Temp Password
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
 
 <!-- User Info Card -->
 <div class="card" style="margin-bottom: 2rem;">

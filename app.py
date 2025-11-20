@@ -158,7 +158,6 @@ def register():
         return redirect(url_for('login'))
     
     return render_template('register.html', form=form)
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """User login"""
@@ -183,6 +182,12 @@ def login():
         db.session.commit()
         
         login_user(user, remember=form.remember_me.data)
+        
+        # Check if user must change password
+        if user.must_change_password:
+            flash('You must change your password before continuing.', 'warning')
+            return redirect(url_for('change_password'))
+        
         flash(f'Welcome back, {user.username}!', 'success')
         
         next_page = request.args.get('next')
@@ -191,6 +196,7 @@ def login():
         return redirect(next_page)
     
     return render_template('login.html', form=form)
+
 
 @app.route('/logout')
 @login_required
@@ -844,6 +850,471 @@ def delete_user(user_id):
     return redirect(url_for('manage_users'))
 
 # ============================================================================
+# ADMIN - CONTENT MANAGEMENT ROUTES
+# ============================================================================
+
+@app.route('/admin/content')
+@login_required
+def admin_content():
+    """Content management dashboard"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    contents = WebsiteContent.query.order_by(WebsiteContent.page, WebsiteContent.section).all()
+    announcements = Announcement.query.order_by(Announcement.created_at.desc()).limit(10).all()
+    
+    return render_template('admin/content_management.html',
+                         contents=contents,
+                         announcements=announcements)
+
+@app.route('/admin/content/edit/<int:content_id>', methods=['GET', 'POST'])
+@login_required
+def edit_content(content_id):
+    """Edit website content"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    content = WebsiteContent.query.get_or_404(content_id)
+    form = ContentEditForm()
+    
+    if form.validate_on_submit():
+        content.content = form.content.data
+        content.updated_by_id = current_user.id
+        content.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        flash(f'Content updated: {content.page} - {content.section}', 'success')
+        return redirect(url_for('admin_content'))
+    
+    if request.method == 'GET':
+        form.content.data = content.content
+    
+    return render_template('admin/edit_content.html', form=form, content=content)
+
+# ============================================================================
+# ADMIN - SYLLABUS MANAGEMENT
+# ============================================================================
+
+@app.route('/admin/syllabus')
+@login_required
+def admin_syllabus():
+    """Syllabus management"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    physics_chapters = SyllabusChapter.query.filter_by(subject='Physics').order_by(
+        SyllabusChapter.chapter_order
+    ).all()
+    
+    chemistry_chapters = SyllabusChapter.query.filter_by(subject='Chemistry').order_by(
+        SyllabusChapter.chapter_order
+    ).all()
+    
+    biology_chapters = SyllabusChapter.query.filter_by(subject='Biology').order_by(
+        SyllabusChapter.chapter_order
+    ).all()
+    
+    return render_template('admin/syllabus_management.html',
+                         physics_chapters=physics_chapters,
+                         chemistry_chapters=chemistry_chapters,
+                         biology_chapters=biology_chapters)
+
+@app.route('/admin/syllabus/add', methods=['GET', 'POST'])
+@login_required
+def add_chapter():
+    """Add new chapter"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    form = ChapterForm()
+    
+    if form.validate_on_submit():
+        chapter = SyllabusChapter(
+            subject=form.subject.data,
+            chapter_name=form.chapter_name.data,
+            chapter_order=form.chapter_order.data,
+            description=form.description.data,
+            is_active=form.is_active.data,
+            created_by_id=current_user.id
+        )
+        
+        db.session.add(chapter)
+        db.session.commit()
+        
+        # Add to existing users' progress
+        users = User.query.filter_by(is_admin=False, is_active=True).all()
+        for user in users:
+            progress = ChapterProgress(
+                user_id=user.id,
+                subject=chapter.subject,
+                chapter_name=chapter.chapter_name,
+                chapter_order=chapter.chapter_order
+            )
+            db.session.add(progress)
+        
+        db.session.commit()
+        
+        flash(f'Chapter added: {chapter.chapter_name}', 'success')
+        return redirect(url_for('admin_syllabus'))
+    
+    return render_template('admin/chapter_form.html', form=form, title='Add Chapter')
+
+@app.route('/admin/syllabus/edit/<int:chapter_id>', methods=['GET', 'POST'])
+@login_required
+def edit_chapter(chapter_id):
+    """Edit chapter"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    chapter = SyllabusChapter.query.get_or_404(chapter_id)
+    form = ChapterForm()
+    
+    if form.validate_on_submit():
+        old_name = chapter.chapter_name
+        
+        chapter.subject = form.subject.data
+        chapter.chapter_name = form.chapter_name.data
+        chapter.chapter_order = form.chapter_order.data
+        chapter.description = form.description.data
+        chapter.is_active = form.is_active.data
+        chapter.updated_at = datetime.utcnow()
+        
+        # Update in users' progress
+        ChapterProgress.query.filter_by(
+            subject=chapter.subject,
+            chapter_name=old_name
+        ).update({
+            'chapter_name': chapter.chapter_name,
+            'chapter_order': chapter.chapter_order
+        })
+        
+        db.session.commit()
+        
+        flash(f'Chapter updated: {chapter.chapter_name}', 'success')
+        return redirect(url_for('admin_syllabus'))
+    
+    if request.method == 'GET':
+        form.subject.data = chapter.subject
+        form.chapter_name.data = chapter.chapter_name
+        form.chapter_order.data = chapter.chapter_order
+        form.description.data = chapter.description
+        form.is_active.data = chapter.is_active
+    
+    return render_template('admin/chapter_form.html', form=form, title='Edit Chapter', chapter=chapter)
+
+@app.route('/admin/syllabus/delete/<int:chapter_id>', methods=['POST'])
+@login_required
+def delete_chapter(chapter_id):
+    """Delete chapter"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    chapter = SyllabusChapter.query.get_or_404(chapter_id)
+    chapter_name = chapter.chapter_name
+    
+    # Delete from users' progress
+    ChapterProgress.query.filter_by(
+        subject=chapter.subject,
+        chapter_name=chapter.chapter_name
+    ).delete()
+    
+    db.session.delete(chapter)
+    db.session.commit()
+    
+    flash(f'Chapter deleted: {chapter_name}', 'warning')
+    return redirect(url_for('admin_syllabus'))
+
+# ============================================================================
+# ADMIN - ANNOUNCEMENTS
+# ============================================================================
+
+@app.route('/admin/announcements')
+@login_required
+def admin_announcements():
+    """Announcements management"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    announcements = Announcement.query.order_by(Announcement.created_at.desc()).all()
+    
+    return render_template('admin/announcements.html', announcements=announcements)
+
+@app.route('/admin/announcements/add', methods=['GET', 'POST'])
+@login_required
+def add_announcement():
+    """Add announcement"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    form = AnnouncementForm()
+    
+    if form.validate_on_submit():
+        announcement = Announcement(
+            title=form.title.data,
+            message=form.message.data,
+            announcement_type=form.announcement_type.data,
+            show_on_pages=form.show_on_pages.data,
+            is_active=form.is_active.data,
+            expires_at=form.expires_at.data,
+            created_by_id=current_user.id
+        )
+        
+        db.session.add(announcement)
+        db.session.commit()
+        
+        flash(f'Announcement created: {announcement.title}', 'success')
+        return redirect(url_for('admin_announcements'))
+    
+    return render_template('admin/announcement_form.html', form=form, title='Create Announcement')
+
+@app.route('/admin/announcements/edit/<int:announcement_id>', methods=['GET', 'POST'])
+@login_required
+def edit_announcement(announcement_id):
+    """Edit announcement"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    announcement = Announcement.query.get_or_404(announcement_id)
+    form = AnnouncementForm()
+    
+    if form.validate_on_submit():
+        announcement.title = form.title.data
+        announcement.message = form.message.data
+        announcement.announcement_type = form.announcement_type.data
+        announcement.show_on_pages = form.show_on_pages.data
+        announcement.is_active = form.is_active.data
+        announcement.expires_at = form.expires_at.data
+        
+        db.session.commit()
+        
+        flash(f'Announcement updated: {announcement.title}', 'success')
+        return redirect(url_for('admin_announcements'))
+    
+    if request.method == 'GET':
+        form.title.data = announcement.title
+        form.message.data = announcement.message
+        form.announcement_type.data = announcement.announcement_type
+        form.show_on_pages.data = announcement.show_on_pages
+        form.is_active.data = announcement.is_active
+        form.expires_at.data = announcement.expires_at
+    
+    return render_template('admin/announcement_form.html', form=form, title='Edit Announcement', announcement=announcement)
+
+@app.route('/admin/announcements/delete/<int:announcement_id>', methods=['POST'])
+@login_required
+def delete_announcement(announcement_id):
+    """Delete announcement"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    announcement = Announcement.query.get_or_404(announcement_id)
+    title = announcement.title
+    
+    db.session.delete(announcement)
+    db.session.commit()
+    
+    flash(f'Announcement deleted: {title}', 'warning')
+    return redirect(url_for('admin_announcements'))
+
+@app.route('/admin/announcements/toggle/<int:announcement_id>', methods=['POST'])
+@login_required
+def toggle_announcement(announcement_id):
+    """Toggle announcement active status"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    announcement = Announcement.query.get_or_404(announcement_id)
+    announcement.is_active = not announcement.is_active
+    
+    db.session.commit()
+    
+    status = 'activated' if announcement.is_active else 'deactivated'
+    flash(f'Announcement {status}: {announcement.title}', 'info')
+    return redirect(url_for('admin_announcements'))
+
+# ============================================================================
+# ADMIN - INITIALIZE DEFAULT CONTENT
+# ============================================================================
+
+@app.route('/admin/init_content')
+@login_required
+def init_default_content():
+    """Initialize default website content"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    # Check if content already exists
+    if WebsiteContent.query.count() > 0:
+        flash('Content already initialized!', 'warning')
+        return redirect(url_for('admin_content'))
+    
+    # Default content
+    default_contents = [
+        {
+            'page': 'home',
+            'section': 'hero_title',
+            'content': '🎯 NEET Study Tracker',
+            'content_type': 'text'
+        },
+        {
+            'page': 'home',
+            'section': 'hero_subtitle',
+            'content': 'Your complete study companion for NEET preparation. Track progress, log study time, analyze test scores, and stay motivated!',
+            'content_type': 'text'
+        },
+        {
+            'page': 'about',
+            'section': 'mission',
+            'content': 'NEET Study Tracker is a comprehensive web application designed specifically for NEET aspirants to help them stay organized, track their preparation progress, and achieve their medical education goals.',
+            'content_type': 'text'
+        },
+        {
+            'page': 'about',
+            'section': 'description',
+            'content': 'We understand that preparing for NEET is challenging and requires consistent effort, smart planning, and regular monitoring of progress. Our platform provides all the essential tools you need to succeed.',
+            'content_type': 'text'
+        }
+    ]
+    
+    for content_data in default_contents:
+        content = WebsiteContent(
+            page=content_data['page'],
+            section=content_data['section'],
+            content=content_data['content'],
+            content_type=content_data['content_type'],
+            updated_by_id=current_user.id
+        )
+        db.session.add(content)
+    
+    db.session.commit()
+    
+    flash('Default content initialized successfully!', 'success')
+    return redirect(url_for('admin_content'))
+
+# ============================================================================
+# ADMIN - PASSWORD MANAGEMENT
+# ============================================================================
+
+@app.route('/admin/user/<int:user_id>/reset_password', methods=['GET', 'POST'])
+@login_required
+def admin_reset_user_password(user_id):
+    """Admin reset user password"""
+    if not current_user.is_admin:
+        flash('Access denied.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    user = User.query.get_or_404(user_id)
+    
+    if user.is_admin:
+        flash('Cannot reset admin user password.', 'danger')
+        return redirect(url_for('manage_users'))
+    
+    form = AdminPasswordResetForm()
+    
+    if form.validate_on_submit():
+        # Set new password
+        user.set_password(form.new_password.data)
+        user.password_changed_at = datetime.utcnow()
+        user.password_reset_by_id = current_user.id
+        user.must_change_password = form.force_password_change.data
+        
+        db.session.commit()
+        
+        # Log admin action
+        log = AdminLog(
+            admin_id=current_user.id,
+            action_type='password_reset',
+            target_user_id=user.id,
+            description=f'Reset password for user: {user.username}'
+        )
+        db.session.add(log)
+        db.session.commit()
+        
+        flash(f'Password reset successfully for {user.username}!', 'success')
+        
+        if form.force_password_change.data:
+            flash(f'{user.username} must change password on next login.', 'info')
+        
+        # Show temporary password (optional - for admin to share with user)
+        if form.notify_user.data:
+            flash(f'Notification feature coming soon! Share this password with user: {form.new_password.data}', 'warning')
+        else:
+            flash(f'New password: {form.new_password.data} - Share this with the user securely.', 'warning')
+        
+        return redirect(url_for('view_user_progress', user_id=user.id))
+    
+    return render_template('admin/reset_password.html', form=form, user=user)
+
+@app.route('/admin/user/<int:user_id>/generate_temp_password', methods=['POST'])
+@login_required
+def admin_generate_temp_password(user_id):
+    """Admin generate temporary password"""
+    if not current_user.is_admin:
+        return jsonify({'error': 'Access denied'}), 403
+    
+    user = User.query.get_or_404(user_id)
+    
+    if user.is_admin:
+        return jsonify({'error': 'Cannot reset admin password'}), 403
+    
+    # Generate secure random password
+    import secrets
+    import string
+    
+    # Generate 12-character password with letters, digits, and symbols
+    alphabet = string.ascii_letters + string.digits + "!@#$%"
+    temp_password = ''.join(secrets.choice(alphabet) for i in range(12))
+    
+    # Set password
+    user.set_password(temp_password)
+    user.password_changed_at = datetime.utcnow()
+    user.password_reset_by_id = current_user.id
+    user.must_change_password = True
+    
+    db.session.commit()
+    
+    # Log admin action
+    log = AdminLog(
+        admin_id=current_user.id,
+        action_type='temp_password',
+        target_user_id=user.id,
+        description=f'Generated temporary password for: {user.username}'
+    )
+    db.session.add(log)
+    db.session.commit()
+    
+    flash(f'Temporary password generated for {user.username}!', 'success')
+    flash(f'Password: {temp_password}', 'warning')
+    flash('User MUST change this password on next login.', 'info')
+    
+    return redirect(url_for('view_user_progress', user_id=user.id))
+
+# ============================================================================
+# USER - FORCED PASSWORD CHANGE
+# ============================================================================
+
+@app.route('/change_password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    """User change password (including forced change)"""
+    form = AdminPasswordResetForm()
+    
+    if form.validate_on_submit():
+        current_user.set_password(form.new_password.data)
+        current_user.password_changed_at = datetime.utcnow()
+        current_user.must_change_password = False
+        
+        db.session.commit()
+        
+        flash('Password changed successfully!', 'success')
+        return redirect(url_for('dashboard'))
+    
+    return render_template('change_password.html', form=form, forced=current_user.must_change_password)
+
+
+
+# ============================================================================
 # ERROR HANDLERS
 # ============================================================================
 
@@ -859,6 +1330,55 @@ def internal_error(error):
 # ============================================================================
 # RUN
 # ============================================================================
+
+# ============================================================================
+# TEMPORARY MIGRATION ROUTE (Remove after running once)
+# ============================================================================
+
+@app.route('/admin/migrate_db')
+@login_required
+def migrate_db():
+    """One-time database migration"""
+    if not current_user.is_admin:
+        return "Access denied", 403
+    
+    try:
+        # Add new columns to users table
+        with db.engine.connect() as conn:
+            # Check if columns already exist
+            result = conn.execute(db.text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name='users' AND column_name='must_change_password'
+            """))
+            
+            if result.fetchone() is None:
+                # Columns don't exist, add them
+                conn.execute(db.text("ALTER TABLE users ADD COLUMN must_change_password BOOLEAN DEFAULT FALSE"))
+                conn.execute(db.text("ALTER TABLE users ADD COLUMN password_changed_at TIMESTAMP"))
+                conn.execute(db.text("ALTER TABLE users ADD COLUMN password_reset_by_id INTEGER REFERENCES users(id)"))
+                conn.commit()
+                
+                return """
+                <h1>✅ Migration Successful!</h1>
+                <p>New password management fields have been added to the database.</p>
+                <p><a href="/admin/dashboard">Go to Admin Dashboard</a></p>
+                <p><strong>Note:</strong> You can now remove the /admin/migrate_db route from app.py</p>
+                """
+            else:
+                return """
+                <h1>✅ Already Migrated</h1>
+                <p>The database already has the password management fields.</p>
+                <p><a href="/admin/dashboard">Go to Admin Dashboard</a></p>
+                """
+    except Exception as e:
+        db.session.rollback()
+        return f"""
+        <h1>❌ Migration Failed</h1>
+        <p>Error: {str(e)}</p>
+        <p><a href="/admin/dashboard">Go back</a></p>
+        """
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
