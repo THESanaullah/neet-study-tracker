@@ -2,37 +2,60 @@
 from flask import Flask, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from datetime import datetime, date, timedelta
-from config import Config
-from models import db, User, ChapterProgress, StudyLog, TestScore, RevisionLog, PomodoroSession, AdminLog
-from forms import RegistrationForm, LoginForm, StudyLogForm, TestScoreForm, RevisionForm
-from decorators import admin_required, active_required
-from syllabus_data import NEET_SYLLABUS, get_chapters_by_subject
-import json
+import os
+
+# ============================================================================
+# INITIALIZATION
+# ============================================================================
 
 # Initialize Flask app
-app = Flask(__name__)
+app = Flask(__name__, 
+            template_folder='templates',
+            static_folder='static')
+
+# Configuration
+class Config:
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-2024'
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///neet_tracker.db'
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME') or 'admin'
+    ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL') or 'admin@neetstudy.com'
+    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD') or 'admin123'
+    POMODORO_WORK_MINUTES = 25
+    POMODORO_SHORT_BREAK = 5
+    POMODORO_LONG_BREAK = 15
+    REVISION_REMINDER_DAYS = 7
+
 app.config.from_object(Config)
 
-# Initialize extensions
-db.init_app(app)
+# Initialize Database
+from flask_sqlalchemy import SQLAlchemy
+db = SQLAlchemy(app)
+
+# Initialize Login Manager
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to access this page.'
-login_manager.login_message_category = 'info'
 
 @login_manager.user_loader
 def load_user(user_id):
-    """Load user by ID for Flask-Login"""
+    from models import User
     return User.query.get(int(user_id))
 
 # ============================================================================
-# INITIALIZATION & DATABASE SETUP
+# IMPORT MODELS
 # ============================================================================
 
-@app.before_request
-def initialize_database():
-    """Create database tables and admin user on first run"""
+from models import User, ChapterProgress, StudyLog, TestScore, RevisionLog, PomodoroSession, AdminLog
+from forms import RegistrationForm, LoginForm, StudyLogForm, TestScoreForm, RevisionForm
+from syllabus_data import NEET_SYLLABUS
+
+# ============================================================================
+# CREATE TABLES
+# ============================================================================
+
+with app.app_context():
     db.create_all()
     
     # Create admin user if doesn't exist
@@ -49,6 +72,10 @@ def initialize_database():
         db.session.add(admin)
         db.session.commit()
 
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
 def initialize_user_chapters(user):
     """Initialize chapter progress records for new user"""
     for subject, chapters in NEET_SYLLABUS.items():
@@ -61,6 +88,25 @@ def initialize_user_chapters(user):
             )
             db.session.add(chapter_progress)
     db.session.commit()
+
+def calculate_study_streak(user_id):
+    """Calculate consecutive days studied"""
+    today = date.today()
+    streak = 0
+    check_date = today
+    
+    while True:
+        log = StudyLog.query.filter_by(user_id=user_id, date=check_date).first()
+        if log:
+            streak += 1
+            check_date -= timedelta(days=1)
+        else:
+            break
+        
+        if streak > 365:
+            break
+    
+    return streak
 
 # ============================================================================
 # PUBLIC ROUTES
@@ -84,17 +130,16 @@ def register():
             email=form.email.data,
             full_name=form.full_name.data,
             target_exam_year=form.target_exam_year.data,
-            is_active=False  # Requires admin approval
+            is_active=False
         )
         user.set_password(form.password.data)
         
         db.session.add(user)
         db.session.commit()
         
-        # Initialize chapter progress for user
         initialize_user_chapters(user)
         
-        flash('Registration successful! Your account is pending admin approval. You will be notified once approved.', 'success')
+        flash('Registration successful! Your account is pending admin approval.', 'success')
         return redirect(url_for('login'))
     
     return render_template('register.html', form=form)
@@ -116,17 +161,15 @@ def login():
             return redirect(url_for('login'))
         
         if not user.is_active and not user.is_admin:
-            flash('Your account is pending admin approval. Please wait for activation.', 'warning')
+            flash('Your account is pending admin approval.', 'warning')
             return redirect(url_for('login'))
         
-        # Update last login time
         user.last_login = datetime.utcnow()
         db.session.commit()
         
         login_user(user, remember=form.remember_me.data)
         flash(f'Welcome back, {user.username}!', 'success')
         
-        # Redirect to appropriate dashboard
         next_page = request.args.get('next')
         if not next_page or not next_page.startswith('/'):
             next_page = url_for('admin_dashboard') if user.is_admin else url_for('dashboard')
@@ -148,10 +191,12 @@ def logout():
 
 @app.route('/dashboard')
 @login_required
-@active_required
 def dashboard():
-    """Main user dashboard with syllabus tracker"""
-    # Get chapter progress for all subjects
+    """Main user dashboard"""
+    if not current_user.is_active and not current_user.is_admin:
+        flash('Your account is pending admin approval.', 'warning')
+        return redirect(url_for('index'))
+    
     physics_chapters = ChapterProgress.query.filter_by(
         user_id=current_user.id, 
         subject='Physics'
@@ -167,7 +212,6 @@ def dashboard():
         subject='Biology'
     ).order_by(ChapterProgress.chapter_order).all()
     
-    # Calculate progress percentages
     total_chapters = len(physics_chapters) + len(chemistry_chapters) + len(biology_chapters)
     completed_chapters = sum(1 for ch in physics_chapters + chemistry_chapters + biology_chapters if ch.is_completed)
     overall_progress = round((completed_chapters / total_chapters * 100), 1) if total_chapters > 0 else 0
@@ -176,7 +220,6 @@ def dashboard():
     chemistry_progress = current_user.get_subject_progress('Chemistry')
     biology_progress = current_user.get_subject_progress('Biology')
     
-    # Get recent study stats
     today = date.today()
     week_ago = today - timedelta(days=7)
     
@@ -186,16 +229,12 @@ def dashboard():
     ).scalar() or 0
     
     total_study_time_week_hours = round(total_study_time_week / 60, 1)
-    
-    # Get study streak
     study_streak = calculate_study_streak(current_user.id)
     
-    # Get recent test scores
     recent_tests = TestScore.query.filter_by(user_id=current_user.id).order_by(
         TestScore.test_date.desc()
     ).limit(5).all()
     
-    # Get chapters needing revision (not revised in 7+ days)
     revision_threshold = datetime.utcnow() - timedelta(days=app.config['REVISION_REMINDER_DAYS'])
     chapters_need_revision = ChapterProgress.query.filter(
         ChapterProgress.user_id == current_user.id,
@@ -203,7 +242,6 @@ def dashboard():
         ChapterProgress.last_revised_date < revision_threshold
     ).count()
     
-    # Get Pomodoro stats for today
     pomodoro_today = PomodoroSession.query.filter_by(
         user_id=current_user.id,
         session_date=today
@@ -225,40 +263,17 @@ def dashboard():
                          chapters_need_revision=chapters_need_revision,
                          pomodoro_count_today=pomodoro_count_today)
 
-def calculate_study_streak(user_id):
-    """Calculate consecutive days studied"""
-    today = date.today()
-    streak = 0
-    check_date = today
-    
-    while True:
-        log = StudyLog.query.filter_by(user_id=user_id, date=check_date).first()
-        if log:
-            streak += 1
-            check_date -= timedelta(days=1)
-        else:
-            break
-        
-        # Limit check to avoid infinite loop
-        if streak > 365:
-            break
-    
-    return streak
-
 @app.route('/update_chapter/<int:chapter_id>', methods=['POST'])
 @login_required
-@active_required
 def update_chapter(chapter_id):
-    """Update chapter progress checkboxes"""
+    """Update chapter progress"""
     chapter = ChapterProgress.query.get_or_404(chapter_id)
     
-    # Security: Ensure user owns this chapter
     if chapter.user_id != current_user.id:
         return jsonify({'error': 'Unauthorized'}), 403
     
     data = request.get_json()
     
-    # Update checkboxes
     if 'ncert_read' in data:
         chapter.ncert_read = data['ncert_read']
     if 'lecture_watched' in data:
@@ -271,7 +286,6 @@ def update_chapter(chapter_id):
             chapter.revision_count += 1
             chapter.last_revised_date = datetime.utcnow()
     
-    # Update completion status
     chapter.update_completion_status()
     chapter.updated_at = datetime.utcnow()
     
@@ -289,12 +303,10 @@ def update_chapter(chapter_id):
 
 @app.route('/study_log', methods=['GET', 'POST'])
 @login_required
-@active_required
 def study_log():
-    """Study time logging page"""
+    """Study time logging"""
     form = StudyLogForm()
     
-    # Set default date to today
     if request.method == 'GET':
         form.date.data = date.today()
     
@@ -309,15 +321,13 @@ def study_log():
         db.session.add(log)
         db.session.commit()
         
-        flash(f'Study session logged: {form.duration_minutes.data} minutes on {form.date.data}', 'success')
+        flash(f'Study session logged: {form.duration_minutes.data} minutes', 'success')
         return redirect(url_for('study_log'))
     
-    # Get recent study logs
     logs = StudyLog.query.filter_by(user_id=current_user.id).order_by(
         StudyLog.date.desc()
     ).limit(30).all()
     
-    # Calculate statistics
     total_time = db.session.query(db.func.sum(StudyLog.duration_minutes)).filter_by(
         user_id=current_user.id
     ).scalar() or 0
@@ -337,9 +347,8 @@ def study_log():
 
 @app.route('/study_stats')
 @login_required
-@active_required
 def study_stats():
-    """Get study statistics for charts"""
+    """Get study statistics"""
     days = request.args.get('days', 30, type=int)
     end_date = date.today()
     start_date = end_date - timedelta(days=days)
@@ -349,7 +358,6 @@ def study_stats():
         StudyLog.date >= start_date
     ).order_by(StudyLog.date).all()
     
-    # Prepare data for charts
     dates = []
     durations = []
     
@@ -368,12 +376,10 @@ def study_stats():
 
 @app.route('/test_tracker', methods=['GET', 'POST'])
 @login_required
-@active_required
 def test_tracker():
-    """Mock test score tracking"""
+    """Mock test tracker"""
     form = TestScoreForm()
     
-    # Set default date to today
     if request.method == 'GET':
         form.test_date.data = date.today()
     
@@ -397,10 +403,9 @@ def test_tracker():
         db.session.add(test)
         db.session.commit()
         
-        flash(f'Test score saved: {test.test_name} - {test.percentage}%', 'success')
+        flash(f'Test score saved: {test.percentage}%', 'success')
         return redirect(url_for('test_tracker'))
     
-    # Get all test scores
     tests = TestScore.query.filter_by(user_id=current_user.id).order_by(
         TestScore.test_date.desc()
     ).all()
@@ -409,9 +414,8 @@ def test_tracker():
 
 @app.route('/test_stats')
 @login_required
-@active_required
 def test_stats():
-    """Get test statistics for charts"""
+    """Get test statistics"""
     tests = TestScore.query.filter_by(user_id=current_user.id).order_by(
         TestScore.test_date
     ).all()
@@ -419,7 +423,6 @@ def test_stats():
     dates = [t.test_date.strftime('%Y-%m-%d') for t in tests]
     percentages = [t.percentage for t in tests]
     
-    # Subject-wise performance
     physics_scores = []
     chemistry_scores = []
     biology_scores = []
@@ -440,30 +443,23 @@ def test_stats():
         'biology_scores': biology_scores
     })
 
-# (Continue in next part...)
-# ... (continuing from Part 1)
-
 # ============================================================================
-# REVISION TRACKING ROUTES
+# REVISION ROUTES
 # ============================================================================
 
 @app.route('/revision')
 @login_required
-@active_required
 def revision():
-    """Revision tracking dashboard"""
-    # Get all chapters with revision history
+    """Revision tracking"""
     chapters = ChapterProgress.query.filter_by(user_id=current_user.id).order_by(
         ChapterProgress.subject, ChapterProgress.chapter_order
     ).all()
     
-    # Get chapters needing revision (not revised in 7+ days)
     revision_threshold = datetime.utcnow() - timedelta(days=app.config['REVISION_REMINDER_DAYS'])
     chapters_need_revision = [ch for ch in chapters 
                              if ch.revised and ch.last_revised_date 
                              and ch.last_revised_date < revision_threshold]
     
-    # Get recent revisions across all chapters
     recent_revisions = RevisionLog.query.filter_by(user_id=current_user.id).order_by(
         RevisionLog.revision_date.desc()
     ).limit(20).all()
@@ -471,28 +467,25 @@ def revision():
     return render_template('revision.html',
                          chapters=chapters,
                          chapters_need_revision=chapters_need_revision,
-                         recent_revisions=recent_revisions)
+                         recent_revisions=recent_revisions,
+                         now=datetime.utcnow())
 
 @app.route('/log_revision/<int:chapter_id>', methods=['POST'])
 @login_required
-@active_required
 def log_revision(chapter_id):
-    """Log a revision for a specific chapter"""
+    """Log revision"""
     chapter = ChapterProgress.query.get_or_404(chapter_id)
     
-    # Security check
     if chapter.user_id != current_user.id:
         return jsonify({'error': 'Unauthorized'}), 403
     
     data = request.get_json()
     
-    # Increment revision count
     chapter.revision_count += 1
     chapter.last_revised_date = datetime.utcnow()
     chapter.revised = True
     chapter.update_completion_status()
     
-    # Create revision log entry
     revision = RevisionLog(
         user_id=current_user.id,
         chapter_progress_id=chapter.id,
@@ -512,28 +505,21 @@ def log_revision(chapter_id):
     })
 
 # ============================================================================
-# POMODORO TIMER API ROUTES
+# POMODORO ROUTES
 # ============================================================================
 
 @app.route('/pomodoro/start', methods=['POST'])
 @login_required
-@active_required
 def pomodoro_start():
-    """Start a Pomodoro session"""
-    data = request.get_json()
-    subject = data.get('subject')
-    
+    """Start pomodoro"""
     return jsonify({'success': True, 'message': 'Pomodoro started'})
 
 @app.route('/pomodoro/complete', methods=['POST'])
 @login_required
-@active_required
 def pomodoro_complete():
-    """Log a completed Pomodoro session"""
-    data = request.get_json()
+    """Complete pomodoro"""
     today = date.today()
     
-    # Get or create today's Pomodoro session record
     session = PomodoroSession.query.filter_by(
         user_id=current_user.id,
         session_date=today
@@ -548,11 +534,8 @@ def pomodoro_complete():
         )
         db.session.add(session)
     
-    # Update session
     session.sessions_completed += 1
-    session.total_focus_time += 25  # 25 minutes per Pomodoro
-    if data.get('subject'):
-        session.subject = data['subject']
+    session.total_focus_time += 25
     
     db.session.commit()
     
@@ -564,9 +547,8 @@ def pomodoro_complete():
 
 @app.route('/pomodoro/stats')
 @login_required
-@active_required
 def pomodoro_stats():
-    """Get Pomodoro statistics"""
+    """Get pomodoro stats"""
     days = request.args.get('days', 7, type=int)
     end_date = date.today()
     start_date = end_date - timedelta(days=days)
@@ -595,7 +577,7 @@ def pomodoro_stats():
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
-    """Admin login page"""
+    """Admin login"""
     if current_user.is_authenticated and current_user.is_admin:
         return redirect(url_for('admin_dashboard'))
     
@@ -608,7 +590,7 @@ def admin_login():
             return redirect(url_for('admin_login'))
         
         if not user.is_admin:
-            flash('Access denied. Admin privileges required.', 'danger')
+            flash('Access denied.', 'danger')
             return redirect(url_for('login'))
         
         login_user(user, remember=form.remember_me.data)
@@ -619,20 +601,19 @@ def admin_login():
 
 @app.route('/admin/dashboard')
 @login_required
-@admin_required
 def admin_dashboard():
-    """Admin dashboard overview"""
-    # Get statistics
+    """Admin dashboard"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
     total_users = User.query.filter_by(is_admin=False).count()
     active_users = User.query.filter_by(is_admin=False, is_active=True).count()
     pending_users = User.query.filter_by(is_admin=False, is_active=False).count()
     
-    # Recent registrations
     recent_users = User.query.filter_by(is_admin=False).order_by(
         User.created_at.desc()
     ).limit(10).all()
     
-    # Recent admin actions
     recent_actions = AdminLog.query.order_by(AdminLog.created_at.desc()).limit(15).all()
     
     return render_template('admin/admin_dashboard.html',
@@ -640,35 +621,35 @@ def admin_dashboard():
                          active_users=active_users,
                          pending_users=pending_users,
                          recent_users=recent_users,
-                         recent_actions=recent_actions)
+                         recent_actions=recent_actions,
+                         now=datetime.utcnow())
 
 @app.route('/admin/pending_users')
 @login_required
-@admin_required
 def pending_users():
-    """View pending user registrations"""
+    """Pending users"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
     pending = User.query.filter_by(is_admin=False, is_active=False).order_by(
         User.created_at.desc()
     ).all()
     
-    return render_template('admin/pending_users.html', pending_users=pending)
+    return render_template('admin/pending_users.html', pending_users=pending, now=datetime.utcnow())
 
 @app.route('/admin/approve_user/<int:user_id>', methods=['POST'])
 @login_required
-@admin_required
 def approve_user(user_id):
-    """Approve a pending user registration"""
-    user = User.query.get_or_404(user_id)
+    """Approve user"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
     
-    if user.is_admin:
-        flash('Cannot modify admin accounts.', 'danger')
-        return redirect(url_for('pending_users'))
+    user = User.query.get_or_404(user_id)
     
     user.is_active = True
     user.approved_at = datetime.utcnow()
     user.approved_by_id = current_user.id
     
-    # Log admin action
     log = AdminLog(
         admin_id=current_user.id,
         action_type='approve',
@@ -678,72 +659,68 @@ def approve_user(user_id):
     db.session.add(log)
     db.session.commit()
     
-    flash(f'User {user.username} has been approved and can now log in.', 'success')
+    flash(f'User {user.username} approved!', 'success')
     return redirect(url_for('pending_users'))
 
 @app.route('/admin/reject_user/<int:user_id>', methods=['POST'])
 @login_required
-@admin_required
 def reject_user(user_id):
-    """Reject and delete a pending user registration"""
+    """Reject user"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
     user = User.query.get_or_404(user_id)
-    
-    if user.is_admin:
-        flash('Cannot delete admin accounts.', 'danger')
-        return redirect(url_for('pending_users'))
-    
     username = user.username
     
-    # Log admin action before deletion
     log = AdminLog(
         admin_id=current_user.id,
         action_type='reject',
         target_user_id=user.id,
-        description=f'Rejected and deleted user: {username}'
+        description=f'Rejected user: {username}'
     )
     db.session.add(log)
-    
-    # Delete user and all related data (cascades automatically)
     db.session.delete(user)
     db.session.commit()
     
-    flash(f'User {username} has been rejected and removed from the system.', 'info')
+    flash(f'User {username} rejected!', 'info')
     return redirect(url_for('pending_users'))
 
 @app.route('/admin/manage_users')
 @login_required
-@admin_required
 def manage_users():
-    """Manage all registered users"""
+    """Manage users"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
     page = request.args.get('page', 1, type=int)
     users = User.query.filter_by(is_admin=False).order_by(
         User.created_at.desc()
-    ).paginate(page=page, per_page=app.config['USERS_PER_PAGE'], error_out=False)
+    ).paginate(page=page, per_page=20, error_out=False)
     
-    return render_template('admin/manage_users.html', users=users)
+    return render_template('admin/manage_users.html', users=users, now=datetime.utcnow())
 
 @app.route('/admin/view_user/<int:user_id>')
 @login_required
-@admin_required
 def view_user_progress(user_id):
-    """View a specific user's dashboard in read-only mode"""
+    """View user progress"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
     user = User.query.get_or_404(user_id)
     
     if user.is_admin:
         flash('Cannot view admin user progress.', 'warning')
         return redirect(url_for('manage_users'))
     
-    # Log admin action
     log = AdminLog(
         admin_id=current_user.id,
         action_type='view',
         target_user_id=user.id,
-        description=f'Viewed progress for user: {user.username}'
+        description=f'Viewed progress: {user.username}'
     )
     db.session.add(log)
     db.session.commit()
     
-    # Get user's progress data
     physics_chapters = ChapterProgress.query.filter_by(
         user_id=user.id, subject='Physics'
     ).order_by(ChapterProgress.chapter_order).all()
@@ -761,7 +738,6 @@ def view_user_progress(user_id):
     chemistry_progress = user.get_subject_progress('Chemistry')
     biology_progress = user.get_subject_progress('Biology')
     
-    # Recent activity
     recent_tests = TestScore.query.filter_by(user_id=user.id).order_by(
         TestScore.test_date.desc()
     ).limit(5).all()
@@ -784,54 +760,47 @@ def view_user_progress(user_id):
 
 @app.route('/admin/deactivate_user/<int:user_id>', methods=['POST'])
 @login_required
-@admin_required
 def deactivate_user(user_id):
-    """Deactivate a user account"""
+    """Deactivate user"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
     user = User.query.get_or_404(user_id)
-    
-    if user.is_admin:
-        flash('Cannot deactivate admin accounts.', 'danger')
-        return redirect(url_for('manage_users'))
-    
     user.is_active = False
     
     log = AdminLog(
         admin_id=current_user.id,
         action_type='deactivate',
         target_user_id=user.id,
-        description=f'Deactivated user: {user.username}'
+        description=f'Deactivated: {user.username}'
     )
     db.session.add(log)
     db.session.commit()
     
-    flash(f'User {user.username} has been deactivated.', 'success')
+    flash(f'User {user.username} deactivated!', 'success')
     return redirect(url_for('manage_users'))
 
 @app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
 @login_required
-@admin_required
 def delete_user(user_id):
-    """Permanently delete a user account"""
+    """Delete user"""
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
     user = User.query.get_or_404(user_id)
-    
-    if user.is_admin:
-        flash('Cannot delete admin accounts.', 'danger')
-        return redirect(url_for('manage_users'))
-    
     username = user.username
     
     log = AdminLog(
         admin_id=current_user.id,
         action_type='delete',
         target_user_id=user.id,
-        description=f'Permanently deleted user: {username}'
+        description=f'Deleted: {username}'
     )
     db.session.add(log)
-    
     db.session.delete(user)
     db.session.commit()
     
-    flash(f'User {username} has been permanently deleted.', 'warning')
+    flash(f'User {username} deleted!', 'warning')
     return redirect(url_for('manage_users'))
 
 # ============================================================================
@@ -840,20 +809,16 @@ def delete_user(user_id):
 
 @app.errorhandler(404)
 def not_found_error(error):
-    """Handle 404 errors"""
     return render_template('errors/404.html'), 404
 
 @app.errorhandler(500)
 def internal_error(error):
-    """Handle 500 errors"""
     db.session.rollback()
     return render_template('errors/500.html'), 500
 
 # ============================================================================
-# RUN APPLICATION
+# RUN
 # ============================================================================
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
     app.run(debug=True, host='0.0.0.0', port=5000)
