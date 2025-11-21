@@ -1,41 +1,31 @@
 {% extends "base.html" %}
 
-{% block title %}Admin Login - NEET Study Tracker{% endblock %}
+{% block title %}Admin Login{% endblock %}
 
 {% block content %}
 <div style="max-width: 450px; margin: 2rem auto;">
-    <div class="card" style="border: 2px solid #ef4444;">
-        <div class="card-header" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white;">
-            <h2 class="card-title" style="color: white; margin: 0;">🔐 Admin Login</h2>
-            <p style="margin: 0.5rem 0 0 0; opacity: 0.9;">Restricted Access Only</p>
-        </div>
-        <div class="card-body">
-            <form method="POST" action="{{ url_for('admin_login') }}">
-                {{ form.hidden_tag() }}
-                
-                <div class="form-group">
-                    <label for="username" class="form-label">Admin Username</label>
-                    {{ form.username(class="form-control", id="username", autofocus=true) }}
-                </div>
-                
-                <div class="form-group">
-                    <label for="password" class="form-label">Admin Password</label>
-                    {{ form.password(class="form-control", id="password") }}
-                </div>
-                
-                <div class="form-check" style="margin-bottom: 1.5rem;">
-                    {{ form.remember_me(class="form-check-input", id="remember_me") }}
-                    <label for="remember_me" class="form-check-label">Remember me</label>
-                </div>
-                
-                {{ form.submit(class="btn btn-danger btn-block btn-lg", value="Admin Login") }}
-            </form>
-        </div>
-        <div class="card-footer">
-            <p class="text-center text-muted" style="margin: 0;">
-                <a href="{{ url_for('index') }}">← Back to Home</a>
-            </p>
-        </div>
+    <div class="card">
+        <h2 style="margin-bottom: 2rem; text-align: center;">🔒 Admin Login</h2>
+        
+        <form method="POST" novalidate>
+            {{ form.hidden_tag() }}
+            
+            <div class="form-group">
+                {{ form.username.label(class="form-label") }}
+                {{ form.username(class="form-control", placeholder="Admin username", autofocus=true) }}
+            </div>
+            
+            <div class="form-group">
+                {{ form.password.label(class="form-label") }}
+                {{ form.password(class="form-control", placeholder="Password") }}
+            </div>
+            
+            <div class="form-group">
+                {{ form.remember_me() }} {{ form.remember_me.label() }}
+            </div>
+            
+            {{ form.submit(class="btn btn-primary", style="width: 100%;") }}
+        </form>
     </div>
 </div>
 {% endblock %}

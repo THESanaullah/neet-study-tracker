@@ -3,87 +3,85 @@
 {% block title %}Contact Us - NEET Study Tracker{% endblock %}
 
 {% block content %}
-<div style="max-width: 800px; margin: 0 auto;">
+<div class="card">
     <h1>Contact Us</h1>
     
-    <div class="card" style="margin-top: 2rem;">
-        <div class="card-body">
-            <h2>Get in Touch</h2>
-            <p>Have questions, suggestions, or need help? We're here to assist you!</p>
-            
-            <h3>📧 Email Support</h3>
-            <p>For general inquiries, technical support, or feedback:</p>
-            <p><strong>Email:</strong> <a href="mailto:trackneet@keemail.me">trackneet@keemail.me</a></p>
-            <p class="text-muted">We typically respond within 24-48 hours</p>
-            
-            <hr style="margin: 2rem 0;">
-            
-            <h3>🐛 Report Technical Issues</h3>
-            <p>Found a bug or experiencing technical difficulties?</p>
-            <p><strong>Email:</strong> <a href="mailto:trackneet@keemail.me">trackneet@keemail.me</a></p>
-            <p class="text-muted">Please include: description of issue, browser/device used, and screenshots if possible</p>
-            
-            <hr style="margin: 2rem 0;">
-            
-            <h3>💡 Feature Suggestions</h3>
-            <p>Have an idea to make NEET Study Tracker better?</p>
-            <p><strong>Email:</strong> <a href="mailto:trackneet@keemail.me">trackneet@keemail.me</a></p>
-            <p class="text-muted">We love hearing from users! Your suggestions help us improve.</p>
-            
-            <hr style="margin: 2rem 0;">
-            
-            <h3>🔐 Account Issues</h3>
-            <p>Need help with your account, forgot password, or approval pending?</p>
-            <p><strong>Email:</strong> <a href="mailto:trackneet@keemail.me">trackneet@keemail.me</a></p>
-            <p class="text-muted">Include your username for faster assistance</p>
-            
-            <hr style="margin: 2rem 0;">
-            
-            <h3>📱 Social Media</h3>
-            <p>Stay updated with tips, updates, and study motivation:</p>
-            <ul>
-                <li>Twitter: <a href=" " target="_blank">NA</a></li>
-                <li>Instagram: <a href=" " target="_blank">NA</a></li>
-                <li>Telegram: <a href=" " target="_blank">NA</a></li>
-            </ul>
-            
-            <hr style="margin: 2rem 0;">
-            
-            <h3>📍 Address</h3>
-            <p>NEET Study Tracker<br>
-            Delhi,<br>
-            India</p>
-            
-            <hr style="margin: 2rem 0;">
-            
-            <h3>❓ Frequently Asked Questions</h3>
-            <div style="margin-top: 1rem;">
-                <details>
-                    <summary style="cursor: pointer; font-weight: 500; padding: 0.5rem; background: var(--color-secondary); border-radius: 0.5rem; margin-bottom: 0.5rem;">How long does account approval take?</summary>
-                    <p style="padding: 1rem; background: var(--color-surface); border-radius: 0.5rem; margin-bottom: 1rem;">Usually within 24 hours. If it takes longer, please contact us.</p>
-                </details>
-                
-                <details>
-                    <summary style="cursor: pointer; font-weight: 500; padding: 0.5rem; background: var(--color-secondary); border-radius: 0.5rem; margin-bottom: 0.5rem;">Is this platform really free?</summary>
-                    <p style="padding: 1rem; background: var(--color-surface); border-radius: 0.5rem; margin-bottom: 1rem;">Yes! 100% free with no hidden charges. We believe quality tools should be accessible to all students.</p>
-                </details>
-                
-                <details>
-                    <summary style="cursor: pointer; font-weight: 500; padding: 0.5rem; background: var(--color-secondary); border-radius: 0.5rem; margin-bottom: 0.5rem;">Can I export my data?</summary>
-                    <p style="padding: 1rem; background: var(--color-surface); border-radius: 0.5rem; margin-bottom: 1rem;">Yes, you can view and export all your progress data from your dashboard.</p>
-                </details>
-                
-                <details>
-                    <summary style="cursor: pointer; font-weight: 500; padding: 0.5rem; background: var(--color-secondary); border-radius: 0.5rem; margin-bottom: 0.5rem;">Do you provide study materials?</summary>
-                    <p style="padding: 1rem; background: var(--color-surface); border-radius: 0.5rem; margin-bottom: 1rem;">No, this is a progress tracking tool. You'll need to arrange your own study materials and coaching.</p>
-                </details>
-                
-                <details>
-                    <summary style="cursor: pointer; font-weight: 500; padding: 0.5rem; background: var(--color-secondary); border-radius: 0.5rem; margin-bottom: 0.5rem;">Is my data safe?</summary>
-                    <p style="padding: 1rem; background: var(--color-surface); border-radius: 0.5rem; margin-bottom: 1rem;">Yes! We use industry-standard encryption and security measures. See our <a href="{{ url_for('privacy') }}">Privacy Policy</a> for details.</p>
-                </details>
-            </div>
+    <h2 style="margin-top: 2rem;">Get in Touch</h2>
+    <p>We'd love to hear from you! Whether you have questions, feedback, or need support, feel free to reach out.</p>
+    
+    <div style="background: #f9fafb; padding: 2rem; border-radius: 8px; margin: 2rem 0;">
+        <h3 style="color: #2563eb;">📧 Email Support</h3>
+        <p style="font-size: 1.25rem; margin: 1rem 0;">
+            <strong>Email:</strong> <a href="mailto:TrackNeet@keemail.me" style="color: #2563eb;">TrackNeet@keemail.me</a>
+        </p>
+        <p style="color: #6b7280;">We typically respond within 24-48 hours</p>
+    </div>
+    
+    <h2 style="margin-top: 2rem;">What We Can Help With</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem;">
+        <div style="padding: 1.5rem; background: #dbeafe; border-radius: 8px;">
+            <h3 style="color: #1e40af;">🐛 Technical Issues</h3>
+            <p>Bugs, errors, or technical problems</p>
         </div>
+        
+        <div style="padding: 1.5rem; background: #d1fae5; border-radius: 8px;">
+            <h3 style="color: #065f46;">💡 Feature Requests</h3>
+            <p>Suggestions for new features</p>
+        </div>
+        
+        <div style="padding: 1.5rem; background: #fef3c7; border-radius: 8px;">
+            <h3 style="color: #92400e;">🔐 Account Issues</h3>
+            <p>Login problems, account approval</p>
+        </div>
+        
+        <div style="padding: 1.5rem; background: #fee2e2; border-radius: 8px;">
+            <h3 style="color: #991b1b;">❓ General Questions</h3>
+            <p>Questions about how to use the app</p>
+        </div>
+    </div>
+    
+    <h2 style="margin-top: 2rem;">Frequently Asked Questions</h2>
+    
+    <div style="margin-top: 1rem;">
+        <details style="background: #f9fafb; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; cursor: pointer;">
+            <summary style="font-weight: 600; cursor: pointer;">How long does account approval take?</summary>
+            <p style="margin-top: 1rem; padding-left: 1rem;">Usually within 24 hours. If it takes longer, please contact us at TrackNeet@keemail.me</p>
+        </details>
+        
+        <details style="background: #f9fafb; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; cursor: pointer;">
+            <summary style="font-weight: 600; cursor: pointer;">Is this service really free?</summary>
+            <p style="margin-top: 1rem; padding-left: 1rem;">Yes! 100% free with no hidden charges. We believe quality tools should be accessible to all students.</p>
+        </details>
+        
+        <details style="background: #f9fafb; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; cursor: pointer;">
+            <summary style="font-weight: 600; cursor: pointer;">Can I export my data?</summary>
+            <p style="margin-top: 1rem; padding-left: 1rem;">Currently, you can view all your progress data in the dashboard. Export functionality will be added soon.</p>
+        </details>
+        
+        <details style="background: #f9fafb; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; cursor: pointer;">
+            <summary style="font-weight: 600; cursor: pointer;">Do you provide study materials?</summary>
+            <p style="margin-top: 1rem; padding-left: 1rem;">No, this is a progress tracking tool. You'll need to arrange your own study materials and coaching.</p>
+        </details>
+        
+        <details style="background: #f9fafb; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; cursor: pointer;">
+            <summary style="font-weight: 600; cursor: pointer;">Is my data safe?</summary>
+            <p style="margin-top: 1rem; padding-left: 1rem;">Yes! We use industry-standard encryption and security measures. See our <a href="{{ url_for('privacy') }}">Privacy Policy</a> for details.</p>
+        </details>
+        
+        <details style="background: #f9fafb; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; cursor: pointer;">
+            <summary style="font-weight: 600; cursor: pointer;">I forgot my password. What should I do?</summary>
+            <p style="margin-top: 1rem; padding-left: 1rem;">Contact us at TrackNeet@keemail.me with your username, and we'll help you reset it.</p>
+        </details>
+    </div>
+    
+    <div style="background: #dbeafe; padding: 1.5rem; border-radius: 8px; margin-top: 2rem;">
+        <h3 style="color: #1e40af;">💡 Tips for Faster Response</h3>
+        <ul style="line-height: 2;">
+            <li>Include your username in the email (don't include password)</li>
+            <li>Describe the issue clearly with steps to reproduce</li>
+            <li>Attach screenshots if reporting a bug</li>
+            <li>Check your spam folder for our replies</li>
+        </ul>
     </div>
 </div>
 {% endblock %}

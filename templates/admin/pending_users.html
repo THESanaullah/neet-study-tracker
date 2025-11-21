@@ -1,83 +1,43 @@
 {% extends "admin/admin_base.html" %}
 
-{% block title %}Pending User Approvals - Admin Panel{% endblock %}
-
 {% block content %}
-<div style="margin-bottom: 2rem;">
-    <h1>⏳ Pending User Approvals</h1>
-    <p class="text-muted">Review and approve new user registrations</p>
-</div>
-
-{% if pending_users|length > 0 %}
-<div class="alert alert-info">
-    <strong>{{ pending_users|length }}</strong> user(s) awaiting approval. Review each account carefully before approving.
-</div>
-
-<div class="dashboard-grid">
-    {% for user in pending_users %}
-    <div class="card">
-        <div class="card-header" style="background-color: #fef3c7; border-color: #fcd34d;">
-            <h4 class="card-title" style="margin: 0; color: #92400e;">
-                👤 {{ user.username }}
-            </h4>
-        </div>
-        <div class="card-body">
-            <div style="margin-bottom: 1rem;">
-                <p style="margin: 0.5rem 0;">
-                    <strong>Email:</strong><br>
-                    <a href="mailto:{{ user.email }}">{{ user.email }}</a>
-                </p>
-                <p style="margin: 0.5rem 0;">
-                    <strong>Full Name:</strong><br>
-                    {{ user.full_name or 'Not provided' }}
-                </p>
-                <p style="margin: 0.5rem 0;">
-                    <strong>Target NEET Year:</strong><br>
-                    {{ user.target_exam_year or 'Not specified' }}
-                </p>
-                <p style="margin: 0.5rem 0;">
-                    <strong>Registered:</strong><br>
-                    {{ user.created_at.strftime('%d %B %Y at %I:%M %p') }}
-                </p>
-                <p style="margin: 0.5rem 0;">
-                    <strong>Days Waiting:</strong><br>
-                    <span class="badge badge-warning">{{ (now - user.created_at).days }} days</span>
-                </p>
-            </div>
-            
-            <hr style="margin: 1rem 0;">
-            
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                <form method="POST" action="{{ url_for('approve_user', user_id=user.id) }}" style="flex: 1;">
-                    <button type="submit" class="btn btn-success btn-block" 
-                            onclick="return confirm('Approve user {{ user.username }}? They will be able to log in immediately.');">
-                        ✓ Approve
-                    </button>
-                </form>
-                
-                <form method="POST" action="{{ url_for('reject_user', user_id=user.id) }}" style="flex: 1;">
-                    <button type="submit" class="btn btn-danger btn-block" 
-                            onclick="return confirm('Reject and delete user {{ user.username }}? This action cannot be undone.');">
-                        ✕ Reject
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-    {% endfor %}
-</div>
-
-{% else %}
+<h1>Pending User Approvals</h1>
 
 <div class="card">
-    <div class="card-body" style="text-align: center; padding: 3rem;">
-        <div style="font-size: 4rem; margin-bottom: 1rem;">✅</div>
-        <h3>No Pending Approvals</h3>
-        <p class="text-muted">All registrations have been processed. Check back later for new requests.</p>
-        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-primary">Back to Dashboard</a>
-    </div>
+    {% if pending_users %}
+    <table>
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Full Name</th>
+                <th>Target Year</th>
+                <th>Registered</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in pending_users %}
+            <tr>
+                <td>{{ user.username }}</td>
+                <td>{{ user.email }}</td>
+                <td>{{ user.full_name or '-' }}</td>
+                <td>{{ user.target_exam_year or '-' }}</td>
+                <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                    <form method="POST" action="{{ url_for('approve_user', user_id=user.id) }}" style="display: inline;">
+                        <button type="submit" class="btn btn-success" style="padding: 0.5rem 1rem;">Approve</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('reject_user', user_id=user.id) }}" style="display: inline;">
+                        <button type="submit" class="btn btn-danger" style="padding: 0.5rem 1rem;" onclick="return confirm('Reject and delete this user?')">Reject</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="text-align: center; color: #6b7280; padding: 2rem;">No pending users.</p>
+    {% endif %}
 </div>
-
-{% endif %}
-
 {% endblock %}

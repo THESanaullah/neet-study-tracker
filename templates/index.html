@@ -1,95 +1,35 @@
 {% extends "base.html" %}
 
-{% block title %}Home - NEET Study Tracker{% endblock %}
-
 {% block content %}
 <div style="text-align: center; padding: 4rem 0;">
-    <h1 style="font-size: 3rem; margin-bottom: 1rem; color: var(--color-primary);">
-        🎯 NEET Study Tracker
-    </h1>
-    <p style="font-size: 1.25rem; color: var(--color-text-muted); max-width: 600px; margin: 0 auto 3rem;">
-        Your complete study companion for NEET preparation. Track progress, log study time, analyze test scores, and stay motivated!
-    </p>
+    <h1 style="font-size: 3rem; margin-bottom: 1rem;">🎯 NEET Study Tracker</h1>
+    <p style="font-size: 1.25rem; color: #6b7280; margin-bottom: 3rem;">Your complete study companion for NEET preparation</p>
     
-    {% if not current_user.is_authenticated %}
-        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
-            <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg">Get Started Free</a>
-            <a href="{{ url_for('login') }}" class="btn btn-outline btn-lg">Login</a>
-        </div>
-    {% else %}
-        <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg">Go to Dashboard</a>
-    {% endif %}
-</div>
-
-<!-- Features Section -->
-<div class="dashboard-grid" style="margin-top: 4rem;">
-    <div class="card">
-        <div class="card-body" style="text-align: center;">
-            <div style="font-size: 3rem; margin-bottom: 1rem;">📖</div>
-            <h3>Complete Syllabus Tracker</h3>
-            <p class="text-muted">Track every chapter of Physics, Chemistry, and Biology with detailed progress checkboxes.</p>
-        </div>
+    <div style="display: flex; gap: 1rem; justify-content: center; margin-bottom: 4rem;">
+        <a href="{{ url_for('register') }}" class="btn btn-primary" style="font-size: 1.1rem; padding: 1rem 2rem;">Get Started Free</a>
+        <a href="{{ url_for('login') }}" class="btn btn-secondary" style="font-size: 1.1rem; padding: 1rem 2rem;">Login</a>
     </div>
     
-    <div class="card">
-        <div class="card-body" style="text-align: center;">
-            <div style="font-size: 3rem; margin-bottom: 1rem;">⏱️</div>
-            <h3>Pomodoro Timer</h3>
-            <p class="text-muted">Built-in focus timer to maximize your study efficiency with the proven Pomodoro technique.</p>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; text-align: left;">
+        <div class="card">
+            <h3 style="color: #2563eb; margin-bottom: 1rem;">📚 Complete Syllabus</h3>
+            <p>Track every chapter of Physics, Chemistry, and Biology with detailed progress checkboxes.</p>
         </div>
-    </div>
-    
-    <div class="card">
-        <div class="card-body" style="text-align: center;">
-            <div style="font-size: 3rem; margin-bottom: 1rem;">📊</div>
-            <h3>Test Analytics</h3>
-            <p class="text-muted">Log mock test scores and visualize your progress with interactive charts and graphs.</p>
+        
+        <div class="card">
+            <h3 style="color: #2563eb; margin-bottom: 1rem;">📊 Test Analytics</h3>
+            <p>Log mock test scores and visualize your progress with interactive charts.</p>
         </div>
-    </div>
-    
-    <div class="card">
-        <div class="card-body" style="text-align: center;">
-            <div style="font-size: 3rem; margin-bottom: 1rem;">🔄</div>
-            <h3>Revision Reminders</h3>
-            <p class="text-muted">Never forget to revise. Track revision history and get smart reminders.</p>
+        
+        <div class="card">
+            <h3 style="color: #2563eb; margin-bottom: 1rem;">⏱️ Study Timer</h3>
+            <p>Track your daily study hours and maintain consistency in preparation.</p>
         </div>
-    </div>
-    
-    <div class="card">
-        <div class="card-body" style="text-align: center;">
-            <div style="font-size: 3rem; margin-bottom: 1rem;">📈</div>
-            <h3>Study Analytics</h3>
-            <p class="text-muted">Comprehensive analytics showing study streaks, time invested, and subject-wise progress.</p>
-        </div>
-    </div>
-    
-    <div class="card">
-        <div class="card-body" style="text-align: center;">
-            <div style="font-size: 3rem; margin-bottom: 1rem;">📱</div>
-            <h3>Mobile Friendly</h3>
-            <p class="text-muted">Study anywhere! Fully responsive design works perfectly on phones, tablets, and laptops.</p>
+        
+        <div class="card">
+            <h3 style="color: #2563eb; margin-bottom: 1rem;">❓ Question Tracking</h3>
+            <p>Log questions practiced chapter-wise and track your problem-solving progress.</p>
         </div>
     </div>
 </div>
-
-<!-- Stats Section -->
-{% if current_user.is_authenticated and not current_user.is_admin %}
-<div style="margin-top: 4rem; padding: 3rem; background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%); border-radius: 1rem; color: white; text-align: center;">
-    <h2 style="color: white; margin-bottom: 2rem;">Your Quick Stats</h2>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem;">
-        <div>
-            <div style="font-size: 2.5rem; font-weight: 700;">{{ current_user.get_progress_percentage() }}%</div>
-            <div style="opacity: 0.9;">Overall Progress</div>
-        </div>
-        <div>
-            <div style="font-size: 2.5rem; font-weight: 700;">{{ current_user.chapter_progress.count() }}</div>
-            <div style="opacity: 0.9;">Total Chapters</div>
-        </div>
-        <div>
-            <div style="font-size: 2.5rem; font-weight: 700;">{{ current_user.test_scores.count() }}</div>
-            <div style="opacity: 0.9;">Tests Taken</div>
-        </div>
-    </div>
-</div>
-{% endif %}
 {% endblock %}

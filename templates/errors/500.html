@@ -3,15 +3,10 @@
 {% block title %}Server Error - NEET Study Tracker{% endblock %}
 
 {% block content %}
-<div style="text-align: center; padding: 4rem 2rem;">
-    <div style="font-size: 8rem; margin-bottom: 1rem;">⚠️</div>
-    <h1 style="font-size: 3rem; margin-bottom: 1rem;">500 - Internal Server Error</h1>
-    <p style="font-size: 1.25rem; color: var(--color-text-muted); margin-bottom: 2rem;">
-        Something went wrong on our end. We're working to fix it!
-    </p>
-    <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
-        <a href="{{ url_for('index') }}" class="btn btn-primary btn-lg">Go Home</a>
-        <button onclick="location.reload()" class="btn btn-outline btn-lg">Try Again</button>
-    </div>
+<div class="card" style="text-align: center;">
+    <h1 style="font-size: 3rem;">500</h1>
+    <h2 style="margin: 2rem 0 1rem;">Internal Server Error 😬</h2>
+    <p>Something went wrong on our end. Please try again later.</p>
+    <a href="{{ url_for('index') }}" class="btn btn-primary" style="margin-top: 2rem;">Back to Home</a>
 </div>
 {% endblock %}

@@ -3,135 +3,195 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="NEET Study Tracker - Track your NEET preparation progress, study time, and test scores">
     <title>{% block title %}NEET Study Tracker{% endblock %}</title>
-    
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/favicon.png') }}">
-    
-    <!-- CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    
-    {% block extra_css %}{% endblock %}
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+        
+        .navbar {
+            background: #2563eb;
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .navbar-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .navbar h1 {
+            font-size: 1.5rem;
+        }
+        
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin-left: 1.5rem;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .alert {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+        }
+        
+        .alert-success { background: #d1fae5; color: #065f46; border: 1px solid #10b981; }
+        .alert-danger { background: #fee2e2; color: #991b1b; border: 1px solid #ef4444; }
+        .alert-warning { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
+        .alert-info { background: #dbeafe; color: #1e40af; border: 1px solid #3b82f6; }
+        
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #dc2626;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #16a34a;
+            color: white;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        th {
+            background: #f9fafb;
+            font-weight: 600;
+        }
+        
+        .footer {
+            background: #1f2937;
+            color: white;
+            padding: 2rem;
+            margin-top: 4rem;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
-    <!-- Navigation Bar -->
     <nav class="navbar">
-        <div class="container">
-            <div class="navbar-content">
-                <a href="{{ url_for('index') }}" class="navbar-brand">
-                    📚 NEET Study Tracker
-                </a>
-                
-                <button class="navbar-toggle" id="navbar-toggle">
-                    ☰
-                </button>
-                
-                <ul class="navbar-menu" id="navbar-menu">
-                    {% if current_user.is_authenticated %}
-                        {% if current_user.is_admin %}
-                            <li><a href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a></li>
-                            <li><a href="{{ url_for('pending_users') }}">Pending Users</a></li>
-                            <li><a href="{{ url_for('manage_users') }}">Manage Users</a></li>
-                        {% else %}
-                            <li><a href="{{ url_for('dashboard') }}" {% if request.endpoint == 'dashboard' %}class="active"{% endif %}>Dashboard</a></li>
-                            <li><a href="{{ url_for('study_log') }}" {% if request.endpoint == 'study_log' %}class="active"{% endif %}>Study Log</a></li>
-                            <li><a href="{{ url_for('test_tracker') }}" {% if request.endpoint == 'test_tracker' %}class="active"{% endif %}>Tests</a></li>
-                            <li><a href="{{ url_for('revision') }}" {% if request.endpoint == 'revision' %}class="active"{% endif %}>Revision</a></li>
-                        {% endif %}
-                        <li><a href="{{ url_for('logout') }}" class="btn btn-outline btn-sm">Logout ({{ current_user.username }})</a></li>
-                    {% else %}
-                        <li><a href="{{ url_for('login') }}" class="btn btn-outline btn-sm">Login</a></li>
-                        <li><a href="{{ url_for('register') }}" class="btn btn-primary btn-sm">Register</a></li>
-                    {% endif %}
-                </ul>
+        <div class="navbar-content">
+            <h1>🎯 NEET Study Tracker</h1>
+            <div>
+                {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                    <a href="{{ url_for('study_log') }}">Study Log</a>
+                    <a href="{{ url_for('test_tracker') }}">Tests</a>
+                    <a href="{{ url_for('questions_practice') }}">Questions</a>
+                    <a href="{{ url_for('logout') }}">Logout</a>
+                {% else %}
+                    <a href="{{ url_for('index') }}">Home</a>
+                    <a href="{{ url_for('login') }}">Login</a>
+                    <a href="{{ url_for('register') }}">Register</a>
+                {% endif %}
             </div>
         </div>
     </nav>
-    
-    <!-- Flash Messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="container" style="margin-top: 1.5rem;">
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} fade-in">
-                        <span>{{ message }}</span>
-                    </div>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
-    
-    <!-- Main Content -->
-    <main class="container" style="margin-top: 2rem; margin-bottom: 4rem;">
-        {% block content %}{% endblock %}
-    </main>
-    
-    <!-- Footer -->
-    <footer style="background-color: var(--color-surface); border-top: 1px solid var(--color-border); padding: 3rem 0; margin-top: 4rem;">
-        <div class="container">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; margin-bottom: 2rem;">
-                <!-- About Column -->
-                <div>
-                    <h4 style="margin-bottom: 1rem;">NEET Study Tracker</h4>
-                    <p class="text-muted" style="font-size: 0.9rem;">
-                        A comprehensive platform for NEET aspirants to track their preparation progress and stay organized.
-                    </p>
-                </div>
-                
-                <!-- Quick Links -->
-                <div>
-                    <h4 style="margin-bottom: 1rem;">Quick Links</h4>
-                    <ul style="list-style: none; padding: 0; margin: 0;">
-                        <li style="margin-bottom: 0.5rem;"><a href="{{ url_for('index') }}">Home</a></li>
-                        <li style="margin-bottom: 0.5rem;"><a href="{{ url_for('about') }}">About Us</a></li>
-                        <li style="margin-bottom: 0.5rem;"><a href="{{ url_for('contact') }}">Contact</a></li>
-                        {% if not current_user.is_authenticated %}
-                        <li style="margin-bottom: 0.5rem;"><a href="{{ url_for('register') }}">Register</a></li>
-                        <li style="margin-bottom: 0.5rem;"><a href="{{ url_for('login') }}">Login</a></li>
-                        {% endif %}
-                    </ul>
-                </div>
-                
-                <!-- Legal Links -->
-                <div>
-                    <h4 style="margin-bottom: 1rem;">Legal</h4>
-                    <ul style="list-style: none; padding: 0; margin: 0;">
-                        <li style="margin-bottom: 0.5rem;"><a href="{{ url_for('terms') }}">Terms & Conditions</a></li>
-                        <li style="margin-bottom: 0.5rem;"><a href="{{ url_for('privacy') }}">Privacy Policy</a></li>
-                        <li style="margin-bottom: 0.5rem;"><a href="{{ url_for('disclaimer') }}">Disclaimer</a></li>
-                    </ul>
-                </div>
-                
-                <!-- Support -->
-                <div>
-                    <h4 style="margin-bottom: 1rem;">Support</h4>
-                    <p class="text-muted" style="font-size: 0.9rem; margin-bottom: 0.5rem;">
-                        📧 support@neettracker.com
-                    </p>
-                    <p class="text-muted" style="font-size: 0.9rem;">
-                        Made with ❤️ for NEET aspirants
-                    </p>
-                </div>
-            </div>
-            
-            <hr style="margin: 2rem 0; border-color: var(--color-border);">
-            
-            <div class="text-center">
-                <p class="text-muted" style="margin: 0; font-size: 0.875rem;">
-                    © 2025 NEET Study Tracker. All rights reserved.
-                    <br>
-                    <small>Keep studying, stay motivated! 💪</small>
-                </p>
-            </div>
-        </div>
-    </footer>
 
-    <!-- JavaScript -->
-    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-    {% block extra_js %}{% endblock %}
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer class="footer">
+        <p>&copy; 2025 NEET Study Tracker. All rights reserved.</p>
+        <p>
+            <a href="{{ url_for('about') }}" style="color: #93c5fd; margin: 0 1rem;">About</a>
+            <a href="{{ url_for('terms') }}" style="color: #93c5fd; margin: 0 1rem;">Terms</a>
+            <a href="{{ url_for('privacy') }}" style="color: #93c5fd; margin: 0 1rem;">Privacy</a>
+            <a href="{{ url_for('contact') }}" style="color: #93c5fd; margin: 0 1rem;">Contact</a>
+        </p>
+    </footer>
 </body>
 </html>

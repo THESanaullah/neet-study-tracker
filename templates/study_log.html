@@ -1,25 +1,118 @@
 {% extends "base.html" %}
+
+{% block title %}Study Log - NEET Study Tracker{% endblock %}
+
 {% block content %}
-<h1>📅 Study Time Log</h1>
-<div class="dashboard-grid">
-    <div class="card"><h3>Total: {{ total_hours }}h</h3></div>
-    <div class="card"><h3>Average: {{ avg_hours }}h/day</h3></div>
-</div>
-<div class="card">
-    <div class="card-header"><h3>Log New Session</h3></div>
-    <div class="card-body">
-        <form method="POST">
+<h1>📖 Study Time Tracker</h1>
+
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; margin-top: 2rem;">
+    <div class="card">
+        <h2 style="margin-bottom: 1.5rem;">Add Study Session</h2>
+        
+        <form method="POST" novalidate>
             {{ form.hidden_tag() }}
-            {{ form.date.label }} {{ form.date(class="form-control") }}
-            {{ form.subject.label }} {{ form.subject(class="form-control") }}
-            {{ form.duration_minutes.label }} {{ form.duration_minutes(class="form-control") }}
-            {{ form.notes.label }} {{ form.notes(class="form-control") }}
-            {{ form.submit(class="btn btn-primary") }}
+            
+            <div class="form-group">
+                {{ form.date.label(class="form-label") }}
+                {{ form.date(class="form-control") }}
+            </div>
+            
+            <div class="form-group">
+                {{ form.subject.label(class="form-label") }}
+                {{ form.subject(class="form-control") }}
+            </div>
+            
+            <div class="form-group">
+                {{ form.duration_minutes.label(class="form-label") }}
+                {{ form.duration_minutes(class="form-control", placeholder="60") }}
+            </div>
+            
+            <div class="form-group">
+                {{ form.notes.label(class="form-label") }}
+                {{ form.notes(class="form-control", rows="3", placeholder="Optional notes") }}
+            </div>
+            
+            {{ form.submit(class="btn btn-primary", style="width: 100%;") }}
         </form>
     </div>
+    
+    <div>
+        <div class="card">
+            <h2 style="margin-bottom: 1.5rem;">Study Hours Chart (Last 30 Days)</h2>
+            <canvas id="studyChart" style="max-height: 300px;"></canvas>
+        </div>
+        
+        <div class="card">
+            <h2 style="margin-bottom: 1.5rem;">Recent Study Logs</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Subject</th>
+                        <th>Duration</th>
+                        <th>Notes</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td>{{ log.date.strftime('%Y-%m-%d') }}</td>
+                        <td>{{ log.subject or 'All' }}</td>
+                        <td>{{ log.duration_minutes }} min</td>
+                        <td>{{ log.notes[:50] if log.notes else '-' }}</td>
+                        <td>
+                            <form method="POST" action="{{ url_for('delete_study_log', log_id=log.id) }}" style="display: inline;">
+                                <button type="submit" class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" onclick="return confirm('Delete this log?')">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
-<div class="card"><canvas id="study-time-chart" data-days="30"></canvas></div>
-{% endblock %}
-{% block extra_js %}
-<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const chartData = {{ chart_data|safe }};
+const dates = Object.keys(chartData).sort();
+const physicsData = dates.map(d => chartData[d].Physics);
+const chemistryData = dates.map(d => chartData[d].Chemistry);
+const biologyData = dates.map(d => chartData[d].Biology);
+
+new Chart(document.getElementById('studyChart'), {
+    type: 'line',
+    data: {
+        labels: dates,
+        datasets: [
+            {
+                label: 'Physics',
+                data: physicsData,
+                borderColor: '#3b82f6',
+                tension: 0.1
+            },
+            {
+                label: 'Chemistry',
+                data: chemistryData,
+                borderColor: '#10b981',
+                tension: 0.1
+            },
+            {
+                label: 'Biology',
+                data: biologyData,
+                borderColor: '#f59e0b',
+                tension: 0.1
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            title: { display: true, text: 'Study Hours per Day' }
+        }
+    }
+});
+</script>
 {% endblock %}

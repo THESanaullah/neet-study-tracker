@@ -3,63 +3,147 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Admin Panel - NEET Study Tracker{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    {% block extra_css %}{% endblock %}
+    <title>{% block title %}Admin Panel{% endblock %}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+        
+        .navbar {
+            background: #1f2937;
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .navbar-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .navbar h1 {
+            font-size: 1.5rem;
+        }
+        
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin-left: 1.5rem;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .alert {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+        }
+        
+        .alert-success { background: #d1fae5; color: #065f46; border: 1px solid #10b981; }
+        .alert-danger { background: #fee2e2; color: #991b1b; border: 1px solid #ef4444; }
+        .alert-warning { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
+        .alert-info { background: #dbeafe; color: #1e40af; border: 1px solid #3b82f6; }
+        
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-secondary { background: #6b7280; color: white; }
+        .btn-danger { background: #dc2626; color: white; }
+        .btn-success { background: #16a34a; color: white; }
+        .btn-warning { background: #f59e0b; color: white; }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        th {
+            background: #f9fafb;
+            font-weight: 600;
+        }
+    </style>
 </head>
 <body>
-    <!-- Admin Navigation -->
-    <nav class="navbar" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-bottom: 2px solid #ef4444;">
-        <div class="container">
-            <div class="navbar-content">
-                <a href="{{ url_for('admin_dashboard') }}" class="navbar-brand" style="color: #ef4444;">
-                    🔐 Admin Panel
-                </a>
-                
-                <button class="navbar-toggle" id="navbar-toggle">☰</button>
-                
-                <ul class="navbar-menu" id="navbar-menu">
-                    <li><a href="{{ url_for('admin_dashboard') }}" style="color: #f1f5f9;">Dashboard</a></li>
-                    <li><a href="{{ url_for('pending_users') }}" style="color: #f1f5f9;">Pending Users</a></li>
-                    <li><a href="{{ url_for('manage_users') }}" style="color: #f1f5f9;">Manage Users</a></li>
-                    <li><a href="{{ url_for('admin_syllabus') }}" style="color: #f1f5f9;">Syllabus</a></li>
-                    <li><a href="{{ url_for('admin_announcements') }}" style="color: #f1f5f9;">Announcements</a></li>
-                    <li><a href="{{ url_for('admin_content') }}" style="color: #f1f5f9;">Content</a></li>
-                    <li><a href="{{ url_for('index') }}" class="btn btn-outline btn-sm" style="color: #f1f5f9; border-color: #f1f5f9;">View Site</a></li>
-                    <li><a href="{{ url_for('logout') }}" class="btn btn-danger btn-sm">Logout</a></li>
-
-                </ul>
+    <nav class="navbar">
+        <div class="navbar-content">
+            <h1>🔧 Admin Panel</h1>
+            <div>
+                <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('pending_users') }}">Pending Users</a>
+                <a href="{{ url_for('manage_users') }}">Manage Users</a>
+                <a href="{{ url_for('index') }}">View Site</a>
+                <a href="{{ url_for('logout') }}">Logout</a>
             </div>
         </div>
     </nav>
-    
-    <!-- Flash Messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="container" style="margin-top: 1.5rem;">
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} fade-in">
-                        <span>{{ message }}</span>
-                    </div>
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
                 {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
-    
-    <!-- Main Content -->
-    <main class="container" style="margin-top: 2rem; margin-bottom: 4rem;">
+            {% endif %}
+        {% endwith %}
+
         {% block content %}{% endblock %}
-    </main>
-    
-    <!-- Footer -->
-    <footer style="background-color: #1e293b; color: #94a3b8; border-top: 1px solid #334155; padding: 2rem 0; margin-top: 4rem;">
-        <div class="container text-center">
-            <p style="margin: 0;">Admin Panel - NEET Study Tracker © 2025</p>
-        </div>
-    </footer>
-    
-    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-    {% block extra_js %}{% endblock %}
+    </div>
 </body>
 </html>

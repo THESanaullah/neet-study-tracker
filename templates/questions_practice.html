@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}Questions Practice - NEET Study Tracker{% endblock %}
+
+{% block content %}
+<h1>❓ Questions Practice Tracker</h1>
+
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 2rem 0;">
+    <div class="card" style="text-align: center; background: #dbeafe;">
+        <h3 style="color: #1e40af;">Physics</h3>
+        <p style="font-size: 2rem; font-weight: bold;">{{ totals.get('Physics', 0) }}</p>
+        <p>Questions Solved</p>
+    </div>
+    
+    <div class="card" style="text-align: center; background: #d1fae5;">
+        <h3 style="color: #065f46;">Chemistry</h3>
+        <p style="font-size: 2rem; font-weight: bold;">{{ totals.get('Chemistry', 0) }}</p>
+        <p>Questions Solved</p>
+    </div>
+    
+    <div class="card" style="text-align: center; background: #fef3c7;">
+        <h3 style="color: #92400e;">Biology</h3>
+        <p style="font-size: 2rem; font-weight: bold;">{{ totals.get('Biology', 0) }}</p>
+        <p>Questions Solved</p>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem;">
+    <div class="card">
+        <h2 style="margin-bottom: 1.5rem;">Add Practice Log</h2>
+        
+        <form method="POST" novalidate>
+            {{ form.hidden_tag() }}
+            
+            <div class="form-group">
+                {{ form.subject.label(class="form-label") }}
+                {{ form.subject(class="form-control") }}
+            </div>
+            
+            <div class="form-group">
+                {{ form.chapter_name.label(class="form-label") }}
+                {{ form.chapter_name(class="form-control", placeholder="Kinematics") }}
+            </div>
+            
+            <div class="form-group">
+                {{ form.questions_count.label(class="form-label") }}
+                {{ form.questions_count(class="form-control", placeholder="25") }}
+            </div>
+            
+            <div class="form-group">
+                {{ form.date.label(class="form-label") }}
+                {{ form.date(class="form-control") }}
+            </div>
+            
+            <div class="form-group">
+                {{ form.notes.label(class="form-label") }}
+                {{ form.notes(class="form-control", rows="3", placeholder="Optional notes") }}
+            </div>
+            
+            {{ form.submit(class="btn btn-primary", style="width: 100%;") }}
+        </form>
+    </div>
+    
+    <div>
+        <div class="card">
+            <h2 style="margin-bottom: 1.5rem;">Questions Solved Chart (Last 30 Days)</h2>
+            <canvas id="questionsChart" style="max-height: 300px;"></canvas>
+        </div>
+        
+        <div class="card">
+            <h2 style="margin-bottom: 1.5rem;">Recent Practice Logs</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Subject</th>
+                        <th>Chapter</th>
+                        <th>Questions</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td>{{ log.date.strftime('%Y-%m-%d') }}</td>
+                        <td>{{ log.subject }}</td>
+                        <td>{{ log.chapter_name }}</td>
+                        <td><strong>{{ log.questions_count }}</strong></td>
+                        <td>
+                            <form method="POST" action="{{ url_for('delete_question_log', log_id=log.id) }}" style="display: inline;">
+                                <button type="submit" class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" onclick="return confirm('Undo this entry?')">Undo</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const chartData = {{ chart_data|safe }};
+const dates = Object.keys(chartData).sort();
+const physicsData = dates.map(d => chartData[d].Physics);
+const chemistryData = dates.map(d => chartData[d].Chemistry);
+const biologyData = dates.map(d => chartData[d].Biology);
+
+new Chart(document.getElementById('questionsChart'), {
+    type: 'bar',
+    data: {
+        labels: dates,
+        datasets: [
+            {
+                label: 'Physics',
+                data: physicsData,
+                backgroundColor: '#3b82f6'
+            },
+            {
+                label: 'Chemistry',
+                data: chemistryData,
+                backgroundColor: '#10b981'
+            },
+            {
+                label: 'Biology',
+                data: biologyData,
+                backgroundColor: '#f59e0b'
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            title: { display: true, text: 'Questions Practiced per Day' }
+        },
+        scales: {
+            x: { stacked: true },
+            y: { stacked: true, beginAtZero: true }
+        }
+    }
+});
+</script>
+{% endblock %}

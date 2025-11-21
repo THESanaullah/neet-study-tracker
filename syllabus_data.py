@@ -103,11 +103,11 @@ NEET_SYLLABUS = {
 }
 
 # Helper function to get total chapter count
-def get_total_chapters():
-    """Returns total number of chapters across all subjects"""
-    return sum(len(chapters) for chapters in NEET_SYLLABUS.values())
+#def get_total_chapters():
+ #   """Returns total number of chapters across all subjects"""
+  #  return sum(len(chapters) for chapters in NEET_SYLLABUS.values())
 
 # Helper function to get chapters by subject
-def get_chapters_by_subject(subject):
-    """Returns list of chapters for a specific subject"""
-    return NEET_SYLLABUS.get(subject, [])
+#def get_chapters_by_subject(subject):
+ #   """Returns list of chapters for a specific subject"""
+  #  return NEET_SYLLABUS.get(subject, [])

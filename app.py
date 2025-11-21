@@ -1,53 +1,40 @@
-# Main Flask application for NEET Study Tracker
 from flask import Flask, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from datetime import datetime, date, timedelta
 import os
+import json
 
-# ============================================================================
-# CONFIGURATION
-# ============================================================================
-
+# Configuration
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-this-in-production'
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///neet_tracker.db'
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
+    
+    # Database with persistent disk support
+    if os.path.exists('/data'):
+        DATABASE_PATH = '/data/neet_tracker.db'
+    else:
+        BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+        DATABASE_PATH = os.path.join(BASE_DIR, 'neet_tracker.db')
+    
+    SQLALCHEMY_DATABASE_URI = f'sqlite:///{DATABASE_PATH}'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME') or 'admin'
-    ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL') or 'admin@neetstudy.com'
+    ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL') or 'TrackNeet@keemail.me'
     ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD') or 'admin123'
-    
-    POMODORO_WORK_MINUTES = 25
-    POMODORO_SHORT_BREAK = 5
-    POMODORO_LONG_BREAK = 15
-    POMODORO_CYCLES_BEFORE_LONG_BREAK = 4
-    
-    REVISION_REMINDER_DAYS = 7
-    USERS_PER_PAGE = 20
 
-# ============================================================================
-# INITIALIZE FLASK APP
-# ============================================================================
-
-app = Flask(__name__, 
-            template_folder='templates',
-            static_folder='static')
+# Initialize Flask
+app = Flask(__name__)
 app.config.from_object(Config)
 
-# ============================================================================
-# IMPORT AND INITIALIZE DATABASE
-# ============================================================================
+# Import models and forms
+from models import db, User, ChapterProgress, StudyLog, TestScore, QuestionLog, AdminLog
+from forms import RegistrationForm, LoginForm, StudyLogForm, TestScoreForm, QuestionPracticeForm, AdminPasswordResetForm
+from syllabus_data import NEET_SYLLABUS
 
-# Import db from models (it's not initialized yet)
-from models import db, User, ChapterProgress, StudyLog, TestScore, RevisionLog, PomodoroSession, AdminLog
-
-# NOW initialize db with app
+# Initialize database
 db.init_app(app)
 
-# ============================================================================
-# INITIALIZE LOGIN MANAGER
-# ============================================================================
-
+# Initialize login manager
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -56,24 +43,12 @@ login_manager.login_message_category = 'info'
 
 @login_manager.user_loader
 def load_user(user_id):
-    """Load user by ID for Flask-Login"""
     return User.query.get(int(user_id))
 
-# ============================================================================
-# IMPORT FORMS AND DATA
-# ============================================================================
-
-from forms import RegistrationForm, LoginForm, StudyLogForm, TestScoreForm
-from syllabus_data import NEET_SYLLABUS
-
-# ============================================================================
-# CREATE DATABASE TABLES
-# ============================================================================
-
+# Create tables and admin
 with app.app_context():
     db.create_all()
     
-    # Create admin user if doesn't exist
     admin = User.query.filter_by(username=app.config['ADMIN_USERNAME']).first()
     if not admin:
         admin = User(
@@ -86,14 +61,9 @@ with app.app_context():
         admin.set_password(app.config['ADMIN_PASSWORD'])
         db.session.add(admin)
         db.session.commit()
-        print(f"✅ Admin user created: {app.config['ADMIN_USERNAME']}")
 
-# ============================================================================
-# HELPER FUNCTIONS
-# ============================================================================
-
+# Helper functions
 def initialize_user_chapters(user):
-    """Initialize chapter progress for new user"""
     for subject, chapters in NEET_SYLLABUS.items():
         for idx, chapter_name in enumerate(chapters, 1):
             chapter_progress = ChapterProgress(
@@ -105,36 +75,13 @@ def initialize_user_chapters(user):
             db.session.add(chapter_progress)
     db.session.commit()
 
-def calculate_study_streak(user_id):
-    """Calculate consecutive study days"""
-    today = date.today()
-    streak = 0
-    check_date = today
-    
-    while True:
-        log = StudyLog.query.filter_by(user_id=user_id, date=check_date).first()
-        if log:
-            streak += 1
-            check_date -= timedelta(days=1)
-        else:
-            break
-        if streak > 365:
-            break
-    
-    return streak
-
-# ============================================================================
 # PUBLIC ROUTES
-# ============================================================================
-
 @app.route('/')
 def index():
-    """Landing page"""
     return render_template('index.html')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    """User registration"""
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
     
@@ -158,9 +105,9 @@ def register():
         return redirect(url_for('login'))
     
     return render_template('register.html', form=form)
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """User login"""
     if current_user.is_authenticated:
         if current_user.is_admin:
             return redirect(url_for('admin_dashboard'))
@@ -183,7 +130,6 @@ def login():
         
         login_user(user, remember=form.remember_me.data)
         
-        # Check if user must change password
         if user.must_change_password:
             flash('You must change your password before continuing.', 'warning')
             return redirect(url_for('change_password'))
@@ -197,43 +143,26 @@ def login():
     
     return render_template('login.html', form=form)
 
-
 @app.route('/logout')
 @login_required
 def logout():
-    """User logout"""
     logout_user()
     flash('You have been logged out.', 'info')
     return redirect(url_for('index'))
 
-# ============================================================================
 # USER DASHBOARD
-# ============================================================================
-
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    """Main user dashboard"""
     if not current_user.is_active and not current_user.is_admin:
         flash('Your account is pending admin approval.', 'warning')
         return redirect(url_for('index'))
     
-    physics_chapters = ChapterProgress.query.filter_by(
-        user_id=current_user.id, subject='Physics'
-    ).order_by(ChapterProgress.chapter_order).all()
-    
-    chemistry_chapters = ChapterProgress.query.filter_by(
-        user_id=current_user.id, subject='Chemistry'
-    ).order_by(ChapterProgress.chapter_order).all()
-    
-    biology_chapters = ChapterProgress.query.filter_by(
-        user_id=current_user.id, subject='Biology'
-    ).order_by(ChapterProgress.chapter_order).all()
+    physics_chapters = ChapterProgress.query.filter_by(user_id=current_user.id, subject='Physics').order_by(ChapterProgress.chapter_order).all()
+    chemistry_chapters = ChapterProgress.query.filter_by(user_id=current_user.id, subject='Chemistry').order_by(ChapterProgress.chapter_order).all()
+    biology_chapters = ChapterProgress.query.filter_by(user_id=current_user.id, subject='Biology').order_by(ChapterProgress.chapter_order).all()
     
     overall_progress = current_user.get_progress_percentage()
-    physics_progress = current_user.get_subject_progress('Physics')
-    chemistry_progress = current_user.get_subject_progress('Chemistry')
-    biology_progress = current_user.get_subject_progress('Biology')
     
     today = date.today()
     week_ago = today - timedelta(days=7)
@@ -244,38 +173,17 @@ def dashboard():
     ).scalar() or 0
     
     total_study_time_week = round(total_study_time / 60, 1)
-    study_streak = calculate_study_streak(current_user.id)
-    
-    revision_threshold = datetime.utcnow() - timedelta(days=app.config['REVISION_REMINDER_DAYS'])
-    chapters_need_revision = ChapterProgress.query.filter(
-        ChapterProgress.user_id == current_user.id,
-        ChapterProgress.revised == True,
-        ChapterProgress.last_revised_date < revision_threshold
-    ).count()
-    
-    pomodoro_today = PomodoroSession.query.filter_by(
-        user_id=current_user.id, session_date=today
-    ).first()
-    
-    pomodoro_count_today = pomodoro_today.sessions_completed if pomodoro_today else 0
     
     return render_template('dashboard.html',
                          physics_chapters=physics_chapters,
                          chemistry_chapters=chemistry_chapters,
                          biology_chapters=biology_chapters,
                          overall_progress=overall_progress,
-                         physics_progress=physics_progress,
-                         chemistry_progress=chemistry_progress,
-                         biology_progress=biology_progress,
-                         total_study_time_week=total_study_time_week,
-                         study_streak=study_streak,
-                         chapters_need_revision=chapters_need_revision,
-                         pomodoro_count_today=pomodoro_count_today)
+                         total_study_time_week=total_study_time_week)
 
 @app.route('/update_chapter/<int:chapter_id>', methods=['POST'])
 @login_required
 def update_chapter(chapter_id):
-    """Update chapter progress"""
     chapter = ChapterProgress.query.get_or_404(chapter_id)
     
     if chapter.user_id != current_user.id:
@@ -291,70 +199,19 @@ def update_chapter(chapter_id):
         chapter.questions_solved = data['questions_solved']
     if 'revised' in data:
         chapter.revised = data['revised']
-        if data['revised']:
-            chapter.revision_count += 1
-            chapter.last_revised_date = datetime.utcnow()
     
     chapter.update_completion_status()
     chapter.updated_at = datetime.utcnow()
     
     db.session.commit()
     
-    return jsonify({
-        'success': True,
-        'is_completed': chapter.is_completed,
-        'revision_count': chapter.revision_count
-    })
+    return jsonify({'success': True, 'is_completed': chapter.is_completed})
 
-# Continue with remaining routes...
-# (Due to length, use the previous full app.py I provided)
-
-# ============================================================================
-# LEGAL PAGES ROUTES
-# ============================================================================
-
-@app.route('/about')
-def about():
-    """About page"""
-    return render_template('about.html')
-
-@app.route('/terms')
-def terms():
-    """Terms and conditions"""
-    return render_template('terms.html')
-
-@app.route('/privacy')
-def privacy():
-    """Privacy policy"""
-    return render_template('privacy.html')
-
-@app.route('/disclaimer')
-def disclaimer():
-    """Disclaimer page"""
-    return render_template('disclaimer.html')
-
-@app.route('/contact')
-def contact():
-    """Contact page"""
-    return render_template('contact.html')
-
-
-
-if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
-
-# ============================================================================
-# STUDY LOG ROUTES
-# ============================================================================
-
+# STUDY LOG
 @app.route('/study_log', methods=['GET', 'POST'])
 @login_required
 def study_log():
-    """Study time logging"""
     form = StudyLogForm()
-    
-    if request.method == 'GET':
-        form.date.data = date.today()
     
     if form.validate_on_submit():
         log = StudyLog(
@@ -367,67 +224,50 @@ def study_log():
         db.session.add(log)
         db.session.commit()
         
-        flash(f'Study session logged: {form.duration_minutes.data} minutes', 'success')
+        flash('Study session logged successfully!', 'success')
         return redirect(url_for('study_log'))
     
-    logs = StudyLog.query.filter_by(user_id=current_user.id).order_by(
-        StudyLog.date.desc()
-    ).limit(30).all()
+    logs = StudyLog.query.filter_by(user_id=current_user.id).order_by(StudyLog.date.desc()).limit(20).all()
     
-    total_time = db.session.query(db.func.sum(StudyLog.duration_minutes)).filter_by(
-        user_id=current_user.id
-    ).scalar() or 0
-    
-    avg_time = db.session.query(db.func.avg(StudyLog.duration_minutes)).filter_by(
-        user_id=current_user.id
-    ).scalar() or 0
-    
-    total_hours = round(total_time / 60, 1)
-    avg_hours = round(avg_time / 60, 1)
-    
-    return render_template('study_log.html',
-                         form=form,
-                         logs=logs,
-                         total_hours=total_hours,
-                         avg_hours=avg_hours)
-
-@app.route('/study_stats')
-@login_required
-def study_stats():
-    """Get study statistics"""
-    days = request.args.get('days', 30, type=int)
-    end_date = date.today()
-    start_date = end_date - timedelta(days=days)
-    
-    logs = StudyLog.query.filter(
+    # Chart data
+    last_30_days = date.today() - timedelta(days=30)
+    study_data = db.session.query(
+        StudyLog.date,
+        StudyLog.subject,
+        db.func.sum(StudyLog.duration_minutes)
+    ).filter(
         StudyLog.user_id == current_user.id,
-        StudyLog.date >= start_date
-    ).order_by(StudyLog.date).all()
+        StudyLog.date >= last_30_days
+    ).group_by(StudyLog.date, StudyLog.subject).all()
     
-    dates = []
-    durations = []
+    chart_data = {}
+    for log_date, subject, minutes in study_data:
+        date_str = log_date.strftime('%Y-%m-%d')
+        if date_str not in chart_data:
+            chart_data[date_str] = {'Physics': 0, 'Chemistry': 0, 'Biology': 0, 'All': 0}
+        if subject:
+            chart_data[date_str][subject] = round(minutes / 60, 1)
+        else:
+            chart_data[date_str]['All'] = round(minutes / 60, 1)
     
-    for log in logs:
-        dates.append(log.date.strftime('%Y-%m-%d'))
-        durations.append(log.duration_minutes)
-    
-    return jsonify({
-        'dates': dates,
-        'durations': durations
-    })
+    return render_template('study_log.html', form=form, logs=logs, chart_data=json.dumps(chart_data))
 
-# ============================================================================
-# TEST TRACKER ROUTES
-# ============================================================================
-
+@app.route('/delete_study_log/<int:log_id>', methods=['POST'])
+@login_required
+def delete_study_log(log_id):
+    log = StudyLog.query.get_or_404(log_id)
+    if log.user_id != current_user.id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    db.session.delete(log)
+    db.session.commit()
+    flash('Study log deleted.', 'info')
+    return redirect(url_for('study_log'))
+# TEST TRACKER
 @app.route('/test_tracker', methods=['GET', 'POST'])
 @login_required
 def test_tracker():
-    """Mock test tracker"""
     form = TestScoreForm()
-    
-    if request.method == 'GET':
-        form.test_date.data = date.today()
     
     if form.validate_on_submit():
         test = TestScore(
@@ -449,855 +289,105 @@ def test_tracker():
         db.session.add(test)
         db.session.commit()
         
-        flash(f'Test score saved: {test.percentage}%', 'success')
+        flash('Test score added successfully!', 'success')
         return redirect(url_for('test_tracker'))
     
-    tests = TestScore.query.filter_by(user_id=current_user.id).order_by(
-        TestScore.test_date.desc()
-    ).all()
+    tests = TestScore.query.filter_by(user_id=current_user.id).order_by(TestScore.test_date.desc()).all()
     
-    return render_template('test_tracker.html', form=form, tests=tests)
+    # Chart data
+    chart_data = []
+    for test in tests:
+        chart_data.append({
+            'date': test.test_date.strftime('%Y-%m-%d'),
+            'name': test.test_name,
+            'percentage': test.percentage
+        })
+    
+    return render_template('test_tracker.html', form=form, tests=tests, chart_data=json.dumps(chart_data))
 
-@app.route('/test_stats')
+@app.route('/delete_test/<int:test_id>', methods=['POST'])
 @login_required
-def test_stats():
-    """Get test statistics"""
-    tests = TestScore.query.filter_by(user_id=current_user.id).order_by(
-        TestScore.test_date
-    ).all()
-    
-    dates = [t.test_date.strftime('%Y-%m-%d') for t in tests]
-    percentages = [t.percentage for t in tests]
-    
-    physics_scores = []
-    chemistry_scores = []
-    biology_scores = []
-    
-    for t in tests:
-        if t.physics_total and t.physics_total > 0:
-            physics_scores.append(round((t.physics_score / t.physics_total) * 100, 1))
-        if t.chemistry_total and t.chemistry_total > 0:
-            chemistry_scores.append(round((t.chemistry_score / t.chemistry_total) * 100, 1))
-        if t.biology_total and t.biology_total > 0:
-            biology_scores.append(round((t.biology_score / t.biology_total) * 100, 1))
-    
-    return jsonify({
-        'dates': dates,
-        'percentages': percentages,
-        'physics_scores': physics_scores,
-        'chemistry_scores': chemistry_scores,
-        'biology_scores': biology_scores
-    })
-
-# ============================================================================
-# REVISION ROUTES
-# ============================================================================
-
-@app.route('/revision')
-@login_required
-def revision():
-    """Revision tracking"""
-    chapters = ChapterProgress.query.filter_by(user_id=current_user.id).order_by(
-        ChapterProgress.subject, ChapterProgress.chapter_order
-    ).all()
-    
-    revision_threshold = datetime.utcnow() - timedelta(days=app.config['REVISION_REMINDER_DAYS'])
-    chapters_need_revision = [ch for ch in chapters 
-                             if ch.revised and ch.last_revised_date 
-                             and ch.last_revised_date < revision_threshold]
-    
-    recent_revisions = RevisionLog.query.filter_by(user_id=current_user.id).order_by(
-        RevisionLog.revision_date.desc()
-    ).limit(20).all()
-    
-    return render_template('revision.html',
-                         chapters=chapters,
-                         chapters_need_revision=chapters_need_revision,
-                         recent_revisions=recent_revisions,
-                         now=datetime.utcnow())
-
-@app.route('/log_revision/<int:chapter_id>', methods=['POST'])
-@login_required
-def log_revision(chapter_id):
-    """Log revision"""
-    chapter = ChapterProgress.query.get_or_404(chapter_id)
-    
-    if chapter.user_id != current_user.id:
+def delete_test(test_id):
+    test = TestScore.query.get_or_404(test_id)
+    if test.user_id != current_user.id:
         return jsonify({'error': 'Unauthorized'}), 403
     
-    data = request.get_json()
-    
-    chapter.revision_count += 1
-    chapter.last_revised_date = datetime.utcnow()
-    chapter.revised = True
-    chapter.update_completion_status()
-    
-    revision = RevisionLog(
-        user_id=current_user.id,
-        chapter_progress_id=chapter.id,
-        revision_date=datetime.utcnow(),
-        revision_number=chapter.revision_count,
-        notes=data.get('notes', ''),
-        confidence_level=int(data.get('confidence_level', 0)) if data.get('confidence_level') else None
-    )
-    
-    db.session.add(revision)
+    db.session.delete(test)
     db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'revision_count': chapter.revision_count,
-        'last_revised': chapter.last_revised_date.strftime('%Y-%m-%d')
-    })
+    flash('Test score deleted.', 'info')
+    return redirect(url_for('test_tracker'))
 
-# ============================================================================
-# POMODORO ROUTES
-# ============================================================================
-
-@app.route('/pomodoro/start', methods=['POST'])
+# QUESTION PRACTICE
+@app.route('/questions_practice', methods=['GET', 'POST'])
 @login_required
-def pomodoro_start():
-    """Start pomodoro"""
-    return jsonify({'success': True, 'message': 'Pomodoro started'})
-
-@app.route('/pomodoro/complete', methods=['POST'])
-@login_required
-def pomodoro_complete():
-    """Complete pomodoro"""
-    today = date.today()
+def questions_practice():
+    form = QuestionPracticeForm()
     
-    session = PomodoroSession.query.filter_by(
-        user_id=current_user.id,
-        session_date=today
-    ).first()
-    
-    if not session:
-        session = PomodoroSession(
+    if form.validate_on_submit():
+        log = QuestionLog(
             user_id=current_user.id,
-            session_date=today,
-            sessions_completed=0,
-            total_focus_time=0
-        )
-        db.session.add(session)
-    
-    session.sessions_completed += 1
-    session.total_focus_time += 25
-    
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'sessions_today': session.sessions_completed,
-        'total_minutes': session.total_focus_time
-    })
-
-@app.route('/pomodoro/stats')
-@login_required
-def pomodoro_stats():
-    """Get pomodoro stats"""
-    days = request.args.get('days', 7, type=int)
-    end_date = date.today()
-    start_date = end_date - timedelta(days=days)
-    
-    sessions = PomodoroSession.query.filter(
-        PomodoroSession.user_id == current_user.id,
-        PomodoroSession.session_date >= start_date
-    ).order_by(PomodoroSession.session_date).all()
-    
-    dates = [s.session_date.strftime('%Y-%m-%d') for s in sessions]
-    session_counts = [s.sessions_completed for s in sessions]
-    
-    total_sessions = sum(session_counts)
-    total_hours = round(sum(s.total_focus_time for s in sessions) / 60, 1)
-    
-    return jsonify({
-        'dates': dates,
-        'sessions': session_counts,
-        'total_sessions': total_sessions,
-        'total_hours': total_hours
-    })
-
-# ============================================================================
-# ADMIN ROUTES
-# ============================================================================
-
-@app.route('/admin/login', methods=['GET', 'POST'])
-def admin_login():
-    """Admin login"""
-    if current_user.is_authenticated and current_user.is_admin:
-        return redirect(url_for('admin_dashboard'))
-    
-    form = LoginForm()
-    if form.validate_on_submit():
-        user = User.query.filter_by(username=form.username.data).first()
-        
-        if user is None or not user.check_password(form.password.data):
-            flash('Invalid credentials.', 'danger')
-            return redirect(url_for('admin_login'))
-        
-        if not user.is_admin:
-            flash('Access denied.', 'danger')
-            return redirect(url_for('login'))
-        
-        login_user(user, remember=form.remember_me.data)
-        flash(f'Welcome, Admin {user.username}!', 'success')
-        return redirect(url_for('admin_dashboard'))
-    
-    return render_template('admin/admin_login.html', form=form)
-
-@app.route('/admin/dashboard')
-@login_required
-def admin_dashboard():
-    """Admin dashboard"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    total_users = User.query.filter_by(is_admin=False).count()
-    active_users = User.query.filter_by(is_admin=False, is_active=True).count()
-    pending_users = User.query.filter_by(is_admin=False, is_active=False).count()
-    
-    recent_users = User.query.filter_by(is_admin=False).order_by(
-        User.created_at.desc()
-    ).limit(10).all()
-    
-    recent_actions = AdminLog.query.order_by(AdminLog.created_at.desc()).limit(15).all()
-    
-    return render_template('admin/admin_dashboard.html',
-                         total_users=total_users,
-                         active_users=active_users,
-                         pending_users=pending_users,
-                         recent_users=recent_users,
-                         recent_actions=recent_actions,
-                         now=datetime.utcnow())
-
-@app.route('/admin/pending_users')
-@login_required
-def pending_users():
-    """Pending users"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    pending = User.query.filter_by(is_admin=False, is_active=False).order_by(
-        User.created_at.desc()
-    ).all()
-    
-    return render_template('admin/pending_users.html', pending_users=pending, now=datetime.utcnow())
-
-@app.route('/admin/approve_user/<int:user_id>', methods=['POST'])
-@login_required
-def approve_user(user_id):
-    """Approve user"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    user = User.query.get_or_404(user_id)
-    
-    user.is_active = True
-    user.approved_at = datetime.utcnow()
-    user.approved_by_id = current_user.id
-    
-    log = AdminLog(
-        admin_id=current_user.id,
-        action_type='approve',
-        target_user_id=user.id,
-        description=f'Approved user: {user.username}'
-    )
-    db.session.add(log)
-    db.session.commit()
-    
-    flash(f'User {user.username} approved!', 'success')
-    return redirect(url_for('pending_users'))
-
-@app.route('/admin/reject_user/<int:user_id>', methods=['POST'])
-@login_required
-def reject_user(user_id):
-    """Reject user"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    user = User.query.get_or_404(user_id)
-    username = user.username
-    
-    log = AdminLog(
-        admin_id=current_user.id,
-        action_type='reject',
-        target_user_id=user.id,
-        description=f'Rejected user: {username}'
-    )
-    db.session.add(log)
-    db.session.delete(user)
-    db.session.commit()
-    
-    flash(f'User {username} rejected!', 'info')
-    return redirect(url_for('pending_users'))
-
-@app.route('/admin/manage_users')
-@login_required
-def manage_users():
-    """Manage users"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    page = request.args.get('page', 1, type=int)
-    users = User.query.filter_by(is_admin=False).order_by(
-        User.created_at.desc()
-    ).paginate(page=page, per_page=20, error_out=False)
-    
-    return render_template('admin/manage_users.html', users=users, now=datetime.utcnow())
-
-@app.route('/admin/view_user/<int:user_id>')
-@login_required
-def view_user_progress(user_id):
-    """View user progress"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    user = User.query.get_or_404(user_id)
-    
-    if user.is_admin:
-        flash('Cannot view admin user progress.', 'warning')
-        return redirect(url_for('manage_users'))
-    
-    log = AdminLog(
-        admin_id=current_user.id,
-        action_type='view',
-        target_user_id=user.id,
-        description=f'Viewed progress: {user.username}'
-    )
-    db.session.add(log)
-    db.session.commit()
-    
-    physics_chapters = ChapterProgress.query.filter_by(
-        user_id=user.id, subject='Physics'
-    ).order_by(ChapterProgress.chapter_order).all()
-    
-    chemistry_chapters = ChapterProgress.query.filter_by(
-        user_id=user.id, subject='Chemistry'
-    ).order_by(ChapterProgress.chapter_order).all()
-    
-    biology_chapters = ChapterProgress.query.filter_by(
-        user_id=user.id, subject='Biology'
-    ).order_by(ChapterProgress.chapter_order).all()
-    
-    overall_progress = user.get_progress_percentage()
-    physics_progress = user.get_subject_progress('Physics')
-    chemistry_progress = user.get_subject_progress('Chemistry')
-    biology_progress = user.get_subject_progress('Biology')
-    
-    recent_tests = TestScore.query.filter_by(user_id=user.id).order_by(
-        TestScore.test_date.desc()
-    ).limit(5).all()
-    
-    recent_study = StudyLog.query.filter_by(user_id=user.id).order_by(
-        StudyLog.date.desc()
-    ).limit(10).all()
-    
-    return render_template('admin/view_user_progress.html',
-                         user=user,
-                         physics_chapters=physics_chapters,
-                         chemistry_chapters=chemistry_chapters,
-                         biology_chapters=biology_chapters,
-                         overall_progress=overall_progress,
-                         physics_progress=physics_progress,
-                         chemistry_progress=chemistry_progress,
-                         biology_progress=biology_progress,
-                         recent_tests=recent_tests,
-                         recent_study=recent_study)
-
-@app.route('/admin/deactivate_user/<int:user_id>', methods=['POST'])
-@login_required
-def deactivate_user(user_id):
-    """Deactivate user"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    user = User.query.get_or_404(user_id)
-    user.is_active = False
-    
-    log = AdminLog(
-        admin_id=current_user.id,
-        action_type='deactivate',
-        target_user_id=user.id,
-        description=f'Deactivated: {user.username}'
-    )
-    db.session.add(log)
-    db.session.commit()
-    
-    flash(f'User {user.username} deactivated!', 'success')
-    return redirect(url_for('manage_users'))
-
-@app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
-@login_required
-def delete_user(user_id):
-    """Delete user"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    user = User.query.get_or_404(user_id)
-    username = user.username
-    
-    log = AdminLog(
-        admin_id=current_user.id,
-        action_type='delete',
-        target_user_id=user.id,
-        description=f'Deleted: {username}'
-    )
-    db.session.add(log)
-    db.session.delete(user)
-    db.session.commit()
-    
-    flash(f'User {username} deleted!', 'warning')
-    return redirect(url_for('manage_users'))
-
-# ============================================================================
-# ADMIN - CONTENT MANAGEMENT ROUTES
-# ============================================================================
-
-@app.route('/admin/content')
-@login_required
-def admin_content():
-    """Content management dashboard"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    contents = WebsiteContent.query.order_by(WebsiteContent.page, WebsiteContent.section).all()
-    announcements = Announcement.query.order_by(Announcement.created_at.desc()).limit(10).all()
-    
-    return render_template('admin/content_management.html',
-                         contents=contents,
-                         announcements=announcements)
-
-@app.route('/admin/content/edit/<int:content_id>', methods=['GET', 'POST'])
-@login_required
-def edit_content(content_id):
-    """Edit website content"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    content = WebsiteContent.query.get_or_404(content_id)
-    form = ContentEditForm()
-    
-    if form.validate_on_submit():
-        content.content = form.content.data
-        content.updated_by_id = current_user.id
-        content.updated_at = datetime.utcnow()
-        
-        db.session.commit()
-        
-        flash(f'Content updated: {content.page} - {content.section}', 'success')
-        return redirect(url_for('admin_content'))
-    
-    if request.method == 'GET':
-        form.content.data = content.content
-    
-    return render_template('admin/edit_content.html', form=form, content=content)
-
-# ============================================================================
-# ADMIN - SYLLABUS MANAGEMENT
-# ============================================================================
-
-@app.route('/admin/syllabus')
-@login_required
-def admin_syllabus():
-    """Syllabus management"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    physics_chapters = SyllabusChapter.query.filter_by(subject='Physics').order_by(
-        SyllabusChapter.chapter_order
-    ).all()
-    
-    chemistry_chapters = SyllabusChapter.query.filter_by(subject='Chemistry').order_by(
-        SyllabusChapter.chapter_order
-    ).all()
-    
-    biology_chapters = SyllabusChapter.query.filter_by(subject='Biology').order_by(
-        SyllabusChapter.chapter_order
-    ).all()
-    
-    return render_template('admin/syllabus_management.html',
-                         physics_chapters=physics_chapters,
-                         chemistry_chapters=chemistry_chapters,
-                         biology_chapters=biology_chapters)
-
-@app.route('/admin/syllabus/add', methods=['GET', 'POST'])
-@login_required
-def add_chapter():
-    """Add new chapter"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    form = ChapterForm()
-    
-    if form.validate_on_submit():
-        chapter = SyllabusChapter(
             subject=form.subject.data,
             chapter_name=form.chapter_name.data,
-            chapter_order=form.chapter_order.data,
-            description=form.description.data,
-            is_active=form.is_active.data,
-            created_by_id=current_user.id
-        )
-        
-        db.session.add(chapter)
-        db.session.commit()
-        
-        # Add to existing users' progress
-        users = User.query.filter_by(is_admin=False, is_active=True).all()
-        for user in users:
-            progress = ChapterProgress(
-                user_id=user.id,
-                subject=chapter.subject,
-                chapter_name=chapter.chapter_name,
-                chapter_order=chapter.chapter_order
-            )
-            db.session.add(progress)
-        
-        db.session.commit()
-        
-        flash(f'Chapter added: {chapter.chapter_name}', 'success')
-        return redirect(url_for('admin_syllabus'))
-    
-    return render_template('admin/chapter_form.html', form=form, title='Add Chapter')
-
-@app.route('/admin/syllabus/edit/<int:chapter_id>', methods=['GET', 'POST'])
-@login_required
-def edit_chapter(chapter_id):
-    """Edit chapter"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    chapter = SyllabusChapter.query.get_or_404(chapter_id)
-    form = ChapterForm()
-    
-    if form.validate_on_submit():
-        old_name = chapter.chapter_name
-        
-        chapter.subject = form.subject.data
-        chapter.chapter_name = form.chapter_name.data
-        chapter.chapter_order = form.chapter_order.data
-        chapter.description = form.description.data
-        chapter.is_active = form.is_active.data
-        chapter.updated_at = datetime.utcnow()
-        
-        # Update in users' progress
-        ChapterProgress.query.filter_by(
-            subject=chapter.subject,
-            chapter_name=old_name
-        ).update({
-            'chapter_name': chapter.chapter_name,
-            'chapter_order': chapter.chapter_order
-        })
-        
-        db.session.commit()
-        
-        flash(f'Chapter updated: {chapter.chapter_name}', 'success')
-        return redirect(url_for('admin_syllabus'))
-    
-    if request.method == 'GET':
-        form.subject.data = chapter.subject
-        form.chapter_name.data = chapter.chapter_name
-        form.chapter_order.data = chapter.chapter_order
-        form.description.data = chapter.description
-        form.is_active.data = chapter.is_active
-    
-    return render_template('admin/chapter_form.html', form=form, title='Edit Chapter', chapter=chapter)
-
-@app.route('/admin/syllabus/delete/<int:chapter_id>', methods=['POST'])
-@login_required
-def delete_chapter(chapter_id):
-    """Delete chapter"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    chapter = SyllabusChapter.query.get_or_404(chapter_id)
-    chapter_name = chapter.chapter_name
-    
-    # Delete from users' progress
-    ChapterProgress.query.filter_by(
-        subject=chapter.subject,
-        chapter_name=chapter.chapter_name
-    ).delete()
-    
-    db.session.delete(chapter)
-    db.session.commit()
-    
-    flash(f'Chapter deleted: {chapter_name}', 'warning')
-    return redirect(url_for('admin_syllabus'))
-
-# ============================================================================
-# ADMIN - ANNOUNCEMENTS
-# ============================================================================
-
-@app.route('/admin/announcements')
-@login_required
-def admin_announcements():
-    """Announcements management"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    announcements = Announcement.query.order_by(Announcement.created_at.desc()).all()
-    
-    return render_template('admin/announcements.html', announcements=announcements)
-
-@app.route('/admin/announcements/add', methods=['GET', 'POST'])
-@login_required
-def add_announcement():
-    """Add announcement"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    form = AnnouncementForm()
-    
-    if form.validate_on_submit():
-        announcement = Announcement(
-            title=form.title.data,
-            message=form.message.data,
-            announcement_type=form.announcement_type.data,
-            show_on_pages=form.show_on_pages.data,
-            is_active=form.is_active.data,
-            expires_at=form.expires_at.data,
-            created_by_id=current_user.id
-        )
-        
-        db.session.add(announcement)
-        db.session.commit()
-        
-        flash(f'Announcement created: {announcement.title}', 'success')
-        return redirect(url_for('admin_announcements'))
-    
-    return render_template('admin/announcement_form.html', form=form, title='Create Announcement')
-
-@app.route('/admin/announcements/edit/<int:announcement_id>', methods=['GET', 'POST'])
-@login_required
-def edit_announcement(announcement_id):
-    """Edit announcement"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    announcement = Announcement.query.get_or_404(announcement_id)
-    form = AnnouncementForm()
-    
-    if form.validate_on_submit():
-        announcement.title = form.title.data
-        announcement.message = form.message.data
-        announcement.announcement_type = form.announcement_type.data
-        announcement.show_on_pages = form.show_on_pages.data
-        announcement.is_active = form.is_active.data
-        announcement.expires_at = form.expires_at.data
-        
-        db.session.commit()
-        
-        flash(f'Announcement updated: {announcement.title}', 'success')
-        return redirect(url_for('admin_announcements'))
-    
-    if request.method == 'GET':
-        form.title.data = announcement.title
-        form.message.data = announcement.message
-        form.announcement_type.data = announcement.announcement_type
-        form.show_on_pages.data = announcement.show_on_pages
-        form.is_active.data = announcement.is_active
-        form.expires_at.data = announcement.expires_at
-    
-    return render_template('admin/announcement_form.html', form=form, title='Edit Announcement', announcement=announcement)
-
-@app.route('/admin/announcements/delete/<int:announcement_id>', methods=['POST'])
-@login_required
-def delete_announcement(announcement_id):
-    """Delete announcement"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    announcement = Announcement.query.get_or_404(announcement_id)
-    title = announcement.title
-    
-    db.session.delete(announcement)
-    db.session.commit()
-    
-    flash(f'Announcement deleted: {title}', 'warning')
-    return redirect(url_for('admin_announcements'))
-
-@app.route('/admin/announcements/toggle/<int:announcement_id>', methods=['POST'])
-@login_required
-def toggle_announcement(announcement_id):
-    """Toggle announcement active status"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    announcement = Announcement.query.get_or_404(announcement_id)
-    announcement.is_active = not announcement.is_active
-    
-    db.session.commit()
-    
-    status = 'activated' if announcement.is_active else 'deactivated'
-    flash(f'Announcement {status}: {announcement.title}', 'info')
-    return redirect(url_for('admin_announcements'))
-
-# ============================================================================
-# ADMIN - INITIALIZE DEFAULT CONTENT
-# ============================================================================
-
-@app.route('/admin/init_content')
-@login_required
-def init_default_content():
-    """Initialize default website content"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    # Check if content already exists
-    if WebsiteContent.query.count() > 0:
-        flash('Content already initialized!', 'warning')
-        return redirect(url_for('admin_content'))
-    
-    # Default content
-    default_contents = [
-        {
-            'page': 'home',
-            'section': 'hero_title',
-            'content': '🎯 NEET Study Tracker',
-            'content_type': 'text'
-        },
-        {
-            'page': 'home',
-            'section': 'hero_subtitle',
-            'content': 'Your complete study companion for NEET preparation. Track progress, log study time, analyze test scores, and stay motivated!',
-            'content_type': 'text'
-        },
-        {
-            'page': 'about',
-            'section': 'mission',
-            'content': 'NEET Study Tracker is a comprehensive web application designed specifically for NEET aspirants to help them stay organized, track their preparation progress, and achieve their medical education goals.',
-            'content_type': 'text'
-        },
-        {
-            'page': 'about',
-            'section': 'description',
-            'content': 'We understand that preparing for NEET is challenging and requires consistent effort, smart planning, and regular monitoring of progress. Our platform provides all the essential tools you need to succeed.',
-            'content_type': 'text'
-        }
-    ]
-    
-    for content_data in default_contents:
-        content = WebsiteContent(
-            page=content_data['page'],
-            section=content_data['section'],
-            content=content_data['content'],
-            content_type=content_data['content_type'],
-            updated_by_id=current_user.id
-        )
-        db.session.add(content)
-    
-    db.session.commit()
-    
-    flash('Default content initialized successfully!', 'success')
-    return redirect(url_for('admin_content'))
-
-# ============================================================================
-# ADMIN - PASSWORD MANAGEMENT
-# ============================================================================
-
-@app.route('/admin/user/<int:user_id>/reset_password', methods=['GET', 'POST'])
-@login_required
-def admin_reset_user_password(user_id):
-    """Admin reset user password"""
-    if not current_user.is_admin:
-        flash('Access denied.', 'danger')
-        return redirect(url_for('dashboard'))
-    
-    user = User.query.get_or_404(user_id)
-    
-    if user.is_admin:
-        flash('Cannot reset admin user password.', 'danger')
-        return redirect(url_for('manage_users'))
-    
-    form = AdminPasswordResetForm()
-    
-    if form.validate_on_submit():
-        # Set new password
-        user.set_password(form.new_password.data)
-        user.password_changed_at = datetime.utcnow()
-        user.password_reset_by_id = current_user.id
-        user.must_change_password = form.force_password_change.data
-        
-        db.session.commit()
-        
-        # Log admin action
-        log = AdminLog(
-            admin_id=current_user.id,
-            action_type='password_reset',
-            target_user_id=user.id,
-            description=f'Reset password for user: {user.username}'
+            questions_count=form.questions_count.data,
+            date=form.date.data if form.date.data else date.today(),
+            notes=form.notes.data
         )
         db.session.add(log)
         db.session.commit()
         
-        flash(f'Password reset successfully for {user.username}!', 'success')
-        
-        if form.force_password_change.data:
-            flash(f'{user.username} must change password on next login.', 'info')
-        
-        # Show temporary password (optional - for admin to share with user)
-        if form.notify_user.data:
-            flash(f'Notification feature coming soon! Share this password with user: {form.new_password.data}', 'warning')
-        else:
-            flash(f'New password: {form.new_password.data} - Share this with the user securely.', 'warning')
-        
-        return redirect(url_for('view_user_progress', user_id=user.id))
+        flash(f'Added {form.questions_count.data} questions for {form.chapter_name.data}!', 'success')
+        return redirect(url_for('questions_practice'))
     
-    return render_template('admin/reset_password.html', form=form, user=user)
+    logs = QuestionLog.query.filter_by(user_id=current_user.id).order_by(QuestionLog.date.desc()).limit(50).all()
+    
+    # Subject-wise totals
+    subject_totals = db.session.query(
+        QuestionLog.subject,
+        db.func.sum(QuestionLog.questions_count)
+    ).filter(QuestionLog.user_id == current_user.id).group_by(QuestionLog.subject).all()
+    
+    totals = {subject: count for subject, count in subject_totals}
+    
+    # Chart data - questions per day per subject
+    last_30_days = date.today() - timedelta(days=30)
+    question_data = db.session.query(
+        QuestionLog.date,
+        QuestionLog.subject,
+        db.func.sum(QuestionLog.questions_count)
+    ).filter(
+        QuestionLog.user_id == current_user.id,
+        QuestionLog.date >= last_30_days
+    ).group_by(QuestionLog.date, QuestionLog.subject).all()
+    
+    chart_data = {}
+    for log_date, subject, count in question_data:
+        date_str = log_date.strftime('%Y-%m-%d')
+        if date_str not in chart_data:
+            chart_data[date_str] = {'Physics': 0, 'Chemistry': 0, 'Biology': 0}
+        chart_data[date_str][subject] = count
+    
+    return render_template('questions_practice.html', 
+                         form=form, 
+                         logs=logs, 
+                         totals=totals,
+                         chart_data=json.dumps(chart_data))
 
-@app.route('/admin/user/<int:user_id>/generate_temp_password', methods=['POST'])
+@app.route('/delete_question_log/<int:log_id>', methods=['POST'])
 @login_required
-def admin_generate_temp_password(user_id):
-    """Admin generate temporary password"""
-    if not current_user.is_admin:
-        return jsonify({'error': 'Access denied'}), 403
+def delete_question_log(log_id):
+    log = QuestionLog.query.get_or_404(log_id)
+    if log.user_id != current_user.id:
+        return jsonify({'error': 'Unauthorized'}), 403
     
-    user = User.query.get_or_404(user_id)
-    
-    if user.is_admin:
-        return jsonify({'error': 'Cannot reset admin password'}), 403
-    
-    # Generate secure random password
-    import secrets
-    import string
-    
-    # Generate 12-character password with letters, digits, and symbols
-    alphabet = string.ascii_letters + string.digits + "!@#$%"
-    temp_password = ''.join(secrets.choice(alphabet) for i in range(12))
-    
-    # Set password
-    user.set_password(temp_password)
-    user.password_changed_at = datetime.utcnow()
-    user.password_reset_by_id = current_user.id
-    user.must_change_password = True
-    
+    db.session.delete(log)
     db.session.commit()
-    
-    # Log admin action
-    log = AdminLog(
-        admin_id=current_user.id,
-        action_type='temp_password',
-        target_user_id=user.id,
-        description=f'Generated temporary password for: {user.username}'
-    )
-    db.session.add(log)
-    db.session.commit()
-    
-    flash(f'Temporary password generated for {user.username}!', 'success')
-    flash(f'Password: {temp_password}', 'warning')
-    flash('User MUST change this password on next login.', 'info')
-    
-    return redirect(url_for('view_user_progress', user_id=user.id))
+    flash('Question log deleted (undo successful).', 'info')
+    return redirect(url_for('questions_practice'))
 
-# ============================================================================
-# USER - FORCED PASSWORD CHANGE
-# ============================================================================
-
+# PASSWORD CHANGE
 @app.route('/change_password', methods=['GET', 'POST'])
 @login_required
 def change_password():
-    """User change password (including forced change)"""
     form = AdminPasswordResetForm()
     
     if form.validate_on_submit():
@@ -1312,26 +402,239 @@ def change_password():
     
     return render_template('change_password.html', form=form, forced=current_user.must_change_password)
 
+# ADMIN ROUTES
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    if current_user.is_authenticated:
+        if current_user.is_admin:
+            return redirect(url_for('admin_dashboard'))
+        return redirect(url_for('dashboard'))
+    
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(username=form.username.data).first()
+        
+        if user is None or not user.check_password(form.password.data):
+            flash('Invalid username or password.', 'danger')
+            return redirect(url_for('admin_login'))
+        
+        if not user.is_admin:
+            flash('Admin access only.', 'danger')
+            return redirect(url_for('admin_login'))
+        
+        user.last_login = datetime.utcnow()
+        db.session.commit()
+        
+        login_user(user, remember=form.remember_me.data)
+        flash(f'Welcome, Admin {user.username}!', 'success')
+        return redirect(url_for('admin_dashboard'))
+    
+    return render_template('admin/admin_login.html', form=form)
 
+@app.route('/admin/dashboard')
+@login_required
+def admin_dashboard():
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    total_users = User.query.filter_by(is_admin=False).count()
+    active_users = User.query.filter_by(is_admin=False, is_active=True).count()
+    pending_users = User.query.filter_by(is_admin=False, is_active=False).count()
+    
+    recent_users = User.query.filter_by(is_admin=False).order_by(User.created_at.desc()).limit(10).all()
+    
+    return render_template('admin/admin_dashboard.html',
+                         total_users=total_users,
+                         active_users=active_users,
+                         pending_users=pending_users,
+                         recent_users=recent_users)
 
-# ============================================================================
+@app.route('/admin/pending_users')
+@login_required
+def pending_users():
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    pending = User.query.filter_by(is_admin=False, is_active=False).order_by(User.created_at.desc()).all()
+    return render_template('admin/pending_users.html', pending_users=pending)
+
+@app.route('/admin/approve_user/<int:user_id>', methods=['POST'])
+@login_required
+def approve_user(user_id):
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    user = User.query.get_or_404(user_id)
+    user.is_active = True
+    user.approved_at = datetime.utcnow()
+    user.approved_by_id = current_user.id
+    
+    db.session.commit()
+    
+    log = AdminLog(
+        admin_id=current_user.id,
+        target_user_id=user.id,
+        action_type='approve_user',
+        description=f'Approved user: {user.username}'
+    )
+    db.session.add(log)
+    db.session.commit()
+    
+    flash(f'User {user.username} approved!', 'success')
+    return redirect(url_for('pending_users'))
+
+@app.route('/admin/reject_user/<int:user_id>', methods=['POST'])
+@login_required
+def reject_user(user_id):
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    user = User.query.get_or_404(user_id)
+    username = user.username
+    
+    db.session.delete(user)
+    db.session.commit()
+    
+    flash(f'User {username} rejected and deleted.', 'warning')
+    return redirect(url_for('pending_users'))
+
+@app.route('/admin/manage_users')
+@login_required
+def manage_users():
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    users = User.query.filter_by(is_admin=False).order_by(User.created_at.desc()).all()
+    return render_template('admin/manage_users.html', users=users)
+
+@app.route('/admin/user/<int:user_id>')
+@login_required
+def view_user_progress(user_id):
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    user = User.query.get_or_404(user_id)
+    
+    physics_progress = user.chapter_progress.filter_by(subject='Physics').order_by(ChapterProgress.chapter_order).all()
+    chemistry_progress = user.chapter_progress.filter_by(subject='Chemistry').order_by(ChapterProgress.chapter_order).all()
+    biology_progress = user.chapter_progress.filter_by(subject='Biology').order_by(ChapterProgress.chapter_order).all()
+    
+    recent_study_logs = user.study_logs.order_by(StudyLog.date.desc()).limit(10).all()
+    recent_tests = user.test_scores.order_by(TestScore.test_date.desc()).limit(10).all()
+    
+    return render_template('admin/view_user_progress.html',
+                         user=user,
+                         physics_progress=physics_progress,
+                         chemistry_progress=chemistry_progress,
+                         biology_progress=biology_progress,
+                         recent_study_logs=recent_study_logs,
+                         recent_tests=recent_tests)
+
+@app.route('/admin/deactivate_user/<int:user_id>', methods=['POST'])
+@login_required
+def deactivate_user(user_id):
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    user = User.query.get_or_404(user_id)
+    user.is_active = False
+    db.session.commit()
+    
+    flash(f'User {user.username} deactivated.', 'warning')
+    return redirect(url_for('manage_users'))
+
+@app.route('/admin/activate_user/<int:user_id>', methods=['POST'])
+@login_required
+def activate_user(user_id):
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    user = User.query.get_or_404(user_id)
+    user.is_active = True
+    db.session.commit()
+    
+    flash(f'User {user.username} activated.', 'success')
+    return redirect(url_for('manage_users'))
+
+@app.route('/admin/reset_password/<int:user_id>', methods=['GET', 'POST'])
+@login_required
+def admin_reset_password(user_id):
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    user = User.query.get_or_404(user_id)
+    form = AdminPasswordResetForm()
+    
+    if form.validate_on_submit():
+        user.set_password(form.new_password.data)
+        user.password_changed_at = datetime.utcnow()
+        user.must_change_password = True
+        
+        db.session.commit()
+        
+        log = AdminLog(
+            admin_id=current_user.id,
+            target_user_id=user.id,
+            action_type='password_reset',
+            description=f'Reset password for: {user.username}'
+        )
+        db.session.add(log)
+        db.session.commit()
+        
+        flash(f'Password reset for {user.username}! Temporary password: {form.new_password.data}', 'warning')
+        flash('User must change password on next login.', 'info')
+        return redirect(url_for('view_user_progress', user_id=user.id))
+    
+    return render_template('admin/reset_password.html', form=form, user=user)
+
+# LEGAL PAGES
+@app.route('/about')
+def about():
+    return render_template('about.html')
+
+@app.route('/terms')
+def terms():
+    return render_template('terms.html')
+
+@app.route('/privacy')
+def privacy():
+    return render_template('privacy.html')
+
+@app.route('/disclaimer')
+def disclaimer():
+    return render_template('disclaimer.html')
+
+@app.route('/contact')
+def contact():
+    return render_template('contact.html')
+
 # ERROR HANDLERS
-# ============================================================================
-
 @app.errorhandler(404)
 def not_found_error(error):
-    return render_template('errors/404.html'), 404
+    return render_template('404.html'), 404
 
 @app.errorhandler(500)
 def internal_error(error):
     db.session.rollback()
-    return render_template('errors/500.html'), 500
+    return render_template('500.html'), 500
 
-# ============================================================================
-# RUN
-# ============================================================================
+from decorators import admin_required, login_required, active_user_required, password_change_required
 
+@app.route('/admin/dashboard')
+@login_required
+@admin_required
+def admin_dashboard():
+    # Only accessible to logged-in admin users
+    pass
+
+@app.route('/dashboard')
+@login_required
+@active_user_required
+@password_change_required
+def dashboard():
+    # Only accessible to active users who have changed their password
+    pass
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True)

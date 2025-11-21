@@ -5,69 +5,59 @@
 {% block content %}
 <div style="max-width: 500px; margin: 2rem auto;">
     <div class="card">
-        <div class="card-header">
-            <h2 class="card-title">Create Your Account</h2>
-            <p class="text-muted" style="margin: 0;">Join thousands of NEET aspirants tracking their progress</p>
-        </div>
-        <div class="card-body">
-            <form method="POST" action="{{ url_for('register') }}">
-                {{ form.hidden_tag() }}
-                
-                <div class="form-group">
-                    <label for="username" class="form-label">Username *</label>
-                    {{ form.username(class="form-control", id="username") }}
-                    {% if form.username.errors %}
-                        <div class="form-error">{{ form.username.errors[0] }}</div>
-                    {% endif %}
-                </div>
-                
-                <div class="form-group">
-                    <label for="email" class="form-label">Email *</label>
-                    {{ form.email(class="form-control", id="email") }}
-                    {% if form.email.errors %}
-                        <div class="form-error">{{ form.email.errors[0] }}</div>
-                    {% endif %}
-                </div>
-                
-                <div class="form-group">
-                    <label for="full_name" class="form-label">Full Name (Optional)</label>
-                    {{ form.full_name(class="form-control", id="full_name") }}
-                </div>
-                
-                <div class="form-group">
-                    <label for="target_exam_year" class="form-label">Target NEET Year (Optional)</label>
-                    {{ form.target_exam_year(class="form-control", id="target_exam_year") }}
-                </div>
-                
-                <div class="form-group">
-                    <label for="password" class="form-label">Password *</label>
-                    {{ form.password(class="form-control", id="password") }}
-                    {% if form.password.errors %}
-                        <div class="form-error">{{ form.password.errors[0] }}</div>
-                    {% endif %}
-                    <div class="form-text">Minimum 6 characters</div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="confirm_password" class="form-label">Confirm Password *</label>
-                    {{ form.confirm_password(class="form-control", id="confirm_password") }}
-                    {% if form.confirm_password.errors %}
-                        <div class="form-error">{{ form.confirm_password.errors[0] }}</div>
-                    {% endif %}
-                </div>
-                
-                <div class="alert alert-info" style="margin-top: 1.5rem;">
-                    <strong>Note:</strong> Your account will require admin approval before you can log in. You'll receive confirmation once approved.
-                </div>
-                
-                {{ form.submit(class="btn btn-primary btn-block btn-lg") }}
-            </form>
-        </div>
-        <div class="card-footer">
-            <p class="text-center text-muted" style="margin: 0;">
-                Already have an account? <a href="{{ url_for('login') }}">Login here</a>
-            </p>
-        </div>
+        <h2 style="margin-bottom: 2rem; text-align: center;">Create Account</h2>
+        
+        <form method="POST" novalidate>
+            {{ form.hidden_tag() }}
+            
+            <div class="form-group">
+                {{ form.username.label(class="form-label") }}
+                {{ form.username(class="form-control", placeholder="Choose a username") }}
+                {% if form.username.errors %}
+                    <span style="color: #dc2626; font-size: 0.875rem;">{{ form.username.errors[0] }}</span>
+                {% endif %}
+            </div>
+            
+            <div class="form-group">
+                {{ form.email.label(class="form-label") }}
+                {{ form.email(class="form-control", placeholder="your@email.com") }}
+                {% if form.email.errors %}
+                    <span style="color: #dc2626; font-size: 0.875rem;">{{ form.email.errors[0] }}</span>
+                {% endif %}
+            </div>
+            
+            <div class="form-group">
+                {{ form.full_name.label(class="form-label") }}
+                {{ form.full_name(class="form-control", placeholder="Your full name (optional)") }}
+            </div>
+            
+            <div class="form-group">
+                {{ form.target_exam_year.label(class="form-label") }}
+                {{ form.target_exam_year(class="form-control", placeholder="2025") }}
+            </div>
+            
+            <div class="form-group">
+                {{ form.password.label(class="form-label") }}
+                {{ form.password(class="form-control", placeholder="Minimum 6 characters") }}
+                {% if form.password.errors %}
+                    <span style="color: #dc2626; font-size: 0.875rem;">{{ form.password.errors[0] }}</span>
+                {% endif %}
+            </div>
+            
+            <div class="form-group">
+                {{ form.confirm_password.label(class="form-label") }}
+                {{ form.confirm_password(class="form-control", placeholder="Confirm password") }}
+                {% if form.confirm_password.errors %}
+                    <span style="color: #dc2626; font-size: 0.875rem;">{{ form.confirm_password.errors[0] }}</span>
+                {% endif %}
+            </div>
+            
+            {{ form.submit(class="btn btn-primary", style="width: 100%;") }}
+        </form>
+        
+        <p style="text-align: center; margin-top: 1rem;">
+            Already have an account? <a href="{{ url_for('login') }}">Login here</a>
+        </p>
     </div>
 </div>
 {% endblock %}

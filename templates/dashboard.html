@@ -2,412 +2,87 @@
 
 {% block title %}Dashboard - NEET Study Tracker{% endblock %}
 
-{% block extra_css %}
-<style>
-/* Move inline styles to proper CSS */
-.welcome-section {
-    margin-bottom: 2rem;
-}
-
-.pomodoro-timer-card {
-    margin-top: 2rem;
-}
-
-.timer-subject-select {
-    max-width: 300px;
-    margin: 0 auto 2rem;
-}
-
-.subject-progress-section {
-    margin-top: 2rem;
-}
-
-.subject-progress-grid {
-    margin-top: 1rem;
-}
-
-.chapter-tracker-section {
-    margin-top: 3rem;
-}
-
-.subject-tabs {
-    display: flex;
-    gap: 1rem;
-    margin: 1rem 0;
-    flex-wrap: wrap;
-}
-
-.chapter-body-padding-reset {
-    padding: 0;
-}
-
-.revision-alert-section {
-    margin-top: 2rem;
-}
-
-.chapter-actions {
-    margin-top: 0.5rem;
-}
-
-.progress-mt {
-    margin-top: 0.5rem;
-}
-</style>
-{% endblock %}
-
 {% block content %}
-<!-- Welcome Header -->
-<div class="welcome-section">
-    <h1>Welcome back, {{ current_user.username }}! 👋</h1>
-    <p class="text-muted">Here's your NEET preparation overview</p>
-</div>
+<h1>Welcome, {{ current_user.username }}! 👋</h1>
 
-<!-- Stats Overview -->
-<div class="dashboard-grid">
-    <div class="stat-card" style="background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);">
-        <h3>Overall Progress</h3>
-        <div class="stat-value">{{ overall_progress }}%</div>
-        {% set total_chapters = (physics_chapters|length) + (chemistry_chapters|length) + (biology_chapters|length) %}
-        <div class="stat-label">{{ total_chapters }} total chapters</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin: 2rem 0;">
+    <div class="card" style="text-align: center;">
+        <h3 style="color: #2563eb;">Overall Progress</h3>
+        <p style="font-size: 2.5rem; font-weight: bold; margin: 1rem 0;">{{ overall_progress }}%</p>
     </div>
     
-    <div class="stat-card" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-        <h3>Study This Week</h3>
-        <div class="stat-value">{{ total_study_time_week }}h</div>
-        <div class="stat-label">Total study time</div>
-    </div>
-    
-    <div class="stat-card" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
-        <h3>Study Streak</h3>
-        <div class="stat-value">{{ study_streak }} 🔥</div>
-        <div class="stat-label">Consecutive days</div>
-    </div>
-    
-    <div class="stat-card" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
-        <h3>Pomodoros Today</h3>
-        <div class="stat-value">{{ pomodoro_count_today }}</div>
-        <div class="stat-label">Focus sessions completed</div>
+    <div class="card" style="text-align: center;">
+        <h3 style="color: #16a34a;">Study Time (This Week)</h3>
+        <p style="font-size: 2.5rem; font-weight: bold; margin: 1rem 0;">{{ total_study_time_week }}h</p>
     </div>
 </div>
 
-<!-- Pomodoro Timer Section -->
-<div class="card pomodoro-timer-card">
-    <div class="card-header">
-        <h3 class="card-title">⏱️ Pomodoro Timer</h3>
-    </div>
-    <div class="card-body">
-        <div class="pomodoro-container">
-            <div id="timer-status" class="timer-status text-primary">Focus Time</div>
-            <div class="timer-display" id="timer-display">25:00</div>
-            
-            <div class="form-group timer-subject-select">
-                <label for="timer-subject" class="form-label">Subject (Optional)</label>
-                <select id="timer-subject" class="form-control">
-                    <option value="">Select subject</option>
-                    <option value="Physics">Physics</option>
-                    <option value="Chemistry">Chemistry</option>
-                    <option value="Biology">Biology</option>
-                </select>
-            </div>
-            
-            <div class="timer-controls">
-                <button id="start-btn" class="btn btn-success btn-lg">Start</button>
-                <button id="pause-btn" class="btn btn-warning btn-lg" disabled>Pause</button>
-                <button id="reset-btn" class="btn btn-danger btn-lg">Reset</button>
-            </div>
-            
-            <div class="timer-stats">
-                <p><strong>Today's Sessions:</strong> <span id="today-count">{{ pomodoro_count_today }}</span></p>
-                <p><strong>Current Cycle:</strong> <span id="cycle-count">0</span> / 4</p>
+<div class="card">
+    <h2 style="margin-bottom: 1.5rem;">📚 Physics Chapters</h2>
+    <div style="display: grid; gap: 0.5rem;">
+        {% for chapter in physics_chapters %}
+        <div style="padding: 1rem; background: #f9fafb; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <span>{{ chapter.chapter_name }}</span>
+            <div style="display: flex; gap: 1rem;">
+                <label><input type="checkbox" {% if chapter.ncert_read %}checked{% endif %} onchange="updateChapter({{ chapter.id }}, 'ncert_read', this.checked)"> NCERT</label>
+                <label><input type="checkbox" {% if chapter.lecture_watched %}checked{% endif %} onchange="updateChapter({{ chapter.id }}, 'lecture_watched', this.checked)"> Lecture</label>
+                <label><input type="checkbox" {% if chapter.questions_solved %}checked{% endif %} onchange="updateChapter({{ chapter.id }}, 'questions_solved', this.checked)"> Questions</label>
+                <label><input type="checkbox" {% if chapter.revised %}checked{% endif %} onchange="updateChapter({{ chapter.id }}, 'revised', this.checked)"> Revised</label>
             </div>
         </div>
+        {% endfor %}
     </div>
 </div>
 
-<!-- Subject Progress -->
-<div class="subject-progress-section">
-    <h2>📊 Subject-wise Progress</h2>
-    <div class="dashboard-grid subject-progress-grid">
-        <div class="card">
-            <div class="card-body">
-                <h4>Physics</h4>
-                <div class="progress-label">
-                    <span>Progress</span>
-                    <span>{{ physics_progress }}%</span>
-                </div>
-                <div class="progress">
-                    <div class="progress-bar" style="width: {{ physics_progress }}%;">{{ physics_progress }}%</div>
-                </div>
-                <p class="text-muted progress-mt">{{ physics_chapters|length }} chapters</p>
+<div class="card">
+    <h2 style="margin-bottom: 1.5rem;">🧪 Chemistry Chapters</h2>
+    <div style="display: grid; gap: 0.5rem;">
+        {% for chapter in chemistry_chapters %}
+        <div style="padding: 1rem; background: #f9fafb; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <span>{{ chapter.chapter_name }}</span>
+            <div style="display: flex; gap: 1rem;">
+                <label><input type="checkbox" {% if chapter.ncert_read %}checked{% endif %} onchange="updateChapter({{ chapter.id }}, 'ncert_read', this.checked)"> NCERT</label>
+                <label><input type="checkbox" {% if chapter.lecture_watched %}checked{% endif %} onchange="updateChapter({{ chapter.id }}, 'lecture_watched', this.checked)"> Lecture</label>
+                <label><input type="checkbox" {% if chapter.questions_solved %}checked{% endif %} onchange="updateChapter({{ chapter.id }}, 'questions_solved', this.checked)"> Questions</label>
+                <label><input type="checkbox" {% if chapter.revised %}checked{% endif %} onchange="updateChapter({{ chapter.id }}, 'revised', this.checked)"> Revised</label>
             </div>
         </div>
-        
-        <div class="card">
-            <div class="card-body">
-                <h4>Chemistry</h4>
-                <div class="progress-label">
-                    <span>Progress</span>
-                    <span>{{ chemistry_progress }}%</span>
-                </div>
-                <div class="progress">
-                    <div class="progress-bar" style="width: {{ chemistry_progress }}%; background: linear-gradient(90deg, #10b981, #059669);">{{ chemistry_progress }}%</div>
-                </div>
-                <p class="text-muted progress-mt">{{ chemistry_chapters|length }} chapters</p>
-            </div>
-        </div>
-        
-        <div class="card">
-            <div class="card-body">
-                <h4>Biology</h4>
-                <div class="progress-label">
-                    <span>Progress</span>
-                    <span>{{ biology_progress }}%</span>
-                </div>
-                <div class="progress">
-                    <div class="progress-bar" style="width: {{ biology_progress }}%; background: linear-gradient(90deg, #f59e0b, #d97706);">{{ biology_progress }}%</div>
-                </div>
-                <p class="text-muted progress-mt">{{ biology_chapters|length }} chapters</p>
-            </div>
-        </div>
+        {% endfor %}
     </div>
 </div>
 
-<!-- Chapters Needing Revision Alert -->
-{% if chapters_need_revision > 0 %}
-<div class="alert alert-warning revision-alert-section">
-    <strong>⚠️ Reminder:</strong> {{ chapters_need_revision }} chapter(s) haven't been revised in over 7 days. 
-    <a href="{{ url_for('revision') }}">View revision tracker →</a>
-</div>
-{% endif %}
-
-<!-- Chapter Tracker Tabs -->
-<div class="chapter-tracker-section">
-    <h2>📚 Chapter Tracker</h2>
-    
-    <!-- Subject Tabs -->
-    <div class="subject-tabs">
-        <button class="btn btn-primary" onclick="showSubject('physics')">Physics ({{ physics_chapters|length }})</button>
-        <button class="btn btn-outline" onclick="showSubject('chemistry')">Chemistry ({{ chemistry_chapters|length }})</button>
-        <button class="btn btn-outline" onclick="showSubject('biology')">Biology ({{ biology_chapters|length }})</button>
-    </div>
-    
-    <!-- Physics Chapters -->
-    <div id="physics-chapters" class="subject-chapters">
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">Physics Chapters</h3>
-            </div>
-            <div class="card-body chapter-body-padding-reset">
-                <ul class="chapter-list">
-                    {% for chapter in physics_chapters %}
-                    <li class="chapter-item" data-chapter-id="{{ chapter.id }}" data-subject="Physics">
-                        <div class="chapter-header">
-                            <span class="chapter-name">{{ loop.index }}. {{ chapter.chapter_name }}</span>
-                            {% if chapter.revision_count > 0 %}
-                                <span class="revision-badge">{{ chapter.revision_count }}× revised</span>
-                            {% endif %}
-                        </div>
-                        <div class="chapter-checkboxes">
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input chapter-checkbox" 
-                                       data-chapter-id="{{ chapter.id }}" 
-                                       data-type="ncert_read"
-                                       id="ncert_p{{ chapter.id }}"
-                                       {% if chapter.ncert_read %}checked{% endif %}>
-                                <label class="form-check-label" for="ncert_p{{ chapter.id }}">📖 Read NCERT</label>
-                            </div>
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input chapter-checkbox" 
-                                       data-chapter-id="{{ chapter.id }}" 
-                                       data-type="lecture_watched"
-                                       id="lecture_p{{ chapter.id }}"
-                                       {% if chapter.lecture_watched %}checked{% endif %}>
-                                <label class="form-check-label" for="lecture_p{{ chapter.id }}">🎥 Watched Lecture</label>
-                            </div>
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input chapter-checkbox" 
-                                       data-chapter-id="{{ chapter.id }}" 
-                                       data-type="questions_solved"
-                                       id="questions_p{{ chapter.id }}"
-                                       {% if chapter.questions_solved %}checked{% endif %}>
-                                <label class="form-check-label" for="questions_p{{ chapter.id }}">✍️ Solved Questions</label>
-                            </div>
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input chapter-checkbox" 
-                                       data-chapter-id="{{ chapter.id }}" 
-                                       data-type="revised"
-                                       id="revised_p{{ chapter.id }}"
-                                       {% if chapter.revised %}checked{% endif %}>
-                                <label class="form-check-label" for="revised_p{{ chapter.id }}">🔄 Revised</label>
-                            </div>
-                        </div>
-                        <div class="chapter-actions">
-                            <button class="btn btn-sm btn-secondary log-revision-btn" 
-                                    data-chapter-id="{{ chapter.id }}"
-                                    data-chapter-name="{{ chapter.chapter_name }}">
-                                Log Revision
-                            </button>
-                        </div>
-                    </li>
-                    {% endfor %}
-                </ul>
+<div class="card">
+    <h2 style="margin-bottom: 1.5rem;">🧬 Biology Chapters</h2>
+    <div style="display: grid; gap: 0.5rem;">
+        {% for chapter in biology_chapters %}
+        <div style="padding: 1rem; background: #f9fafb; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <span>{{ chapter.chapter_name }}</span>
+            <div style="display: flex; gap: 1rem;">
+                <label><input type="checkbox" {% if chapter.ncert_read %}checked{% endif %} onchange="updateChapter({{ chapter.id }}, 'ncert_read', this.checked)"> NCERT</label>
+                <label><input type="checkbox" {% if chapter.lecture_watched %}checked{% endif %} onchange="updateChapter({{ chapter.id }}, 'lecture_watched', this.checked)"> Lecture</label>
+                <label><input type="checkbox" {% if chapter.questions_solved %}checked{% endif %} onchange="updateChapter({{ chapter.id }}, 'questions_solved', this.checked)"> Questions</label>
+                <label><input type="checkbox" {% if chapter.revised %}checked{% endif %} onchange="updateChapter({{ chapter.id }}, 'revised', this.checked)"> Revised</label>
             </div>
         </div>
-    </div>
-    
-    <!-- Chemistry Chapters -->
-    <div id="chemistry-chapters" class="subject-chapters" style="display: none;">
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">Chemistry Chapters</h3>
-            </div>
-            <div class="card-body chapter-body-padding-reset">
-                <ul class="chapter-list">
-                    {% for chapter in chemistry_chapters %}
-                    <li class="chapter-item" data-chapter-id="{{ chapter.id }}" data-subject="Chemistry">
-                        <div class="chapter-header">
-                            <span class="chapter-name">{{ loop.index }}. {{ chapter.chapter_name }}</span>
-                            {% if chapter.revision_count > 0 %}
-                                <span class="revision-badge">{{ chapter.revision_count }}× revised</span>
-                            {% endif %}
-                        </div>
-                        <div class="chapter-checkboxes">
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input chapter-checkbox" 
-                                       data-chapter-id="{{ chapter.id }}" 
-                                       data-type="ncert_read"
-                                       id="ncert_c{{ chapter.id }}"
-                                       {% if chapter.ncert_read %}checked{% endif %}>
-                                <label class="form-check-label" for="ncert_c{{ chapter.id }}">📖 Read NCERT</label>
-                            </div>
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input chapter-checkbox" 
-                                       data-chapter-id="{{ chapter.id }}" 
-                                       data-type="lecture_watched"
-                                       id="lecture_c{{ chapter.id }}"
-                                       {% if chapter.lecture_watched %}checked{% endif %}>
-                                <label class="form-check-label" for="lecture_c{{ chapter.id }}">🎥 Watched Lecture</label>
-                            </div>
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input chapter-checkbox" 
-                                       data-chapter-id="{{ chapter.id }}" 
-                                       data-type="questions_solved"
-                                       id="questions_c{{ chapter.id }}"
-                                       {% if chapter.questions_solved %}checked{% endif %}>
-                                <label class="form-check-label" for="questions_c{{ chapter.id }}">✍️ Solved Questions</label>
-                            </div>
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input chapter-checkbox" 
-                                       data-chapter-id="{{ chapter.id }}" 
-                                       data-type="revised"
-                                       id="revised_c{{ chapter.id }}"
-                                       {% if chapter.revised %}checked{% endif %}>
-                                <label class="form-check-label" for="revised_c{{ chapter.id }}">🔄 Revised</label>
-                            </div>
-                        </div>
-                        <div class="chapter-actions">
-                            <button class="btn btn-sm btn-secondary log-revision-btn" 
-                                    data-chapter-id="{{ chapter.id }}"
-                                    data-chapter-name="{{ chapter.chapter_name }}">
-                                Log Revision
-                            </button>
-                        </div>
-                    </li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Biology Chapters -->
-    <div id="biology-chapters" class="subject-chapters" style="display: none;">
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">Biology Chapters</h3>
-            </div>
-            <div class="card-body chapter-body-padding-reset">
-                <ul class="chapter-list">
-                    {% for chapter in biology_chapters %}
-                    <li class="chapter-item" data-chapter-id="{{ chapter.id }}" data-subject="Biology">
-                        <div class="chapter-header">
-                            <span class="chapter-name">{{ loop.index }}. {{ chapter.chapter_name }}</span>
-                            {% if chapter.revision_count > 0 %}
-                                <span class="revision-badge">{{ chapter.revision_count }}× revised</span>
-                            {% endif %}
-                        </div>
-                        <div class="chapter-checkboxes">
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input chapter-checkbox" 
-                                       data-chapter-id="{{ chapter.id }}" 
-                                       data-type="ncert_read"
-                                       id="ncert_b{{ chapter.id }}"
-                                       {% if chapter.ncert_read %}checked{% endif %}>
-                                <label class="form-check-label" for="ncert_b{{ chapter.id }}">📖 Read NCERT</label>
-                            </div>
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input chapter-checkbox" 
-                                       data-chapter-id="{{ chapter.id }}" 
-                                       data-type="lecture_watched"
-                                       id="lecture_b{{ chapter.id }}"
-                                       {% if chapter.lecture_watched %}checked{% endif %}>
-                                <label class="form-check-label" for="lecture_b{{ chapter.id }}">🎥 Watched Lecture</label>
-                            </div>
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input chapter-checkbox" 
-                                       data-chapter-id="{{ chapter.id }}" 
-                                       data-type="questions_solved"
-                                       id="questions_b{{ chapter.id }}"
-                                       {% if chapter.questions_solved %}checked{% endif %}>
-                                <label class="form-check-label" for="questions_b{{ chapter.id }}">✍️ Solved Questions</label>
-                            </div>
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input chapter-checkbox" 
-                                       data-chapter-id="{{ chapter.id }}" 
-                                       data-type="revised"
-                                       id="revised_b{{ chapter.id }}"
-                                       {% if chapter.revised %}checked{% endif %}>
-                                <label class="form-check-label" for="revised_b{{ chapter.id }}">🔄 Revised</label>
-                            </div>
-                        </div>
-                        <div class="chapter-actions">
-                            <button class="btn btn-sm btn-secondary log-revision-btn" 
-                                    data-chapter-id="{{ chapter.id }}"
-                                    data-chapter-name="{{ chapter.chapter_name }}">
-                                Log Revision
-                            </button>
-                        </div>
-                    </li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
+        {% endfor %}
     </div>
 </div>
 
 <script>
-// Subject tab switching
-function showSubject(subject) {
-    // Hide all subject sections
-    var sections = document.querySelectorAll('.subject-chapters');
-    for (var i = 0; i < sections.length; i++) {
-        sections[i].style.display = 'none';
-    }
-    
-    // Show selected subject
-    document.getElementById(subject + '-chapters').style.display = 'block';
-    
-    // Update button states
-    var buttons = document.querySelectorAll('button[onclick^="showSubject"]');
-    for (var j = 0; j < buttons.length; j++) {
-        buttons[j].classList.remove('btn-primary');
-        buttons[j].classList.add('btn-outline');
-    }
-    event.target.classList.remove('btn-outline');
-    event.target.classList.add('btn-primary');
+function updateChapter(chapterId, field, value) {
+    fetch('/update_chapter/' + chapterId, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({[field]: value})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
 }
 </script>
-{% endblock %}
-
-{% block extra_js %}
-<script src="{{ url_for('static', filename='js/timer.js') }}"></script>
 {% endblock %}

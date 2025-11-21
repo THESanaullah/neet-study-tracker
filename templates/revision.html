@@ -3,222 +3,113 @@
 {% block title %}Revision Tracker - NEET Study Tracker{% endblock %}
 
 {% block content %}
-<div style="margin-bottom: 2rem;">
-    <h1>🔄 Revision Tracker</h1>
-    <p class="text-muted">Keep track of your revision schedule and maintain consistency</p>
-</div>
+<h1>🔄 Revision Tracker</h1>
 
-<!-- Revision Stats -->
-<div class="dashboard-grid" style="margin-bottom: 2rem;">
-    <div class="stat-card" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
-        <h3>Need Revision</h3>
-        <div class="stat-value">{{ chapters_need_revision|length }}</div>
-        <div class="stat-label">Not revised in 7+ days</div>
-    </div>
-    
-    <div class="stat-card" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-        <h3>Revised Chapters</h3>
-        <div class="stat-value">{{ chapters|selectattr('revised')|list|length }}</div>
-        <div class="stat-label">At least once</div>
-    </div>
-    
-    <div class="stat-card" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
-        <h3>Total Revisions</h3>
-        <div class="stat-value">{{ chapters|sum(attribute='revision_count') }}</div>
-        <div class="stat-label">All chapters combined</div>
-    </div>
-    
-    <div class="stat-card" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
-        <h3>Recent Revisions</h3>
-        <div class="stat-value">{{ recent_revisions|length }}</div>
-        <div class="stat-label">Last 20 sessions</div>
-    </div>
-</div>
-
-<!-- Chapters Needing Revision -->
-{% if chapters_need_revision|length > 0 %}
-<div class="card" style="margin-bottom: 2rem;">
-    <div class="card-header" style="background-color: #fef3c7; border-color: #fcd34d;">
-        <h3 class="card-title" style="color: #92400e;">⚠️ Chapters Needing Revision ({{ chapters_need_revision|length }})</h3>
-        <p style="margin: 0.5rem 0 0 0; color: #92400e;">These chapters haven't been revised in over 7 days</p>
-    </div>
-    <div class="card-body" style="padding: 0;">
-        <div class="table-container">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Subject</th>
-                        <th>Chapter</th>
-                        <th>Revision Count</th>
-                        <th>Last Revised</th>
-                        <th>Days Ago</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for chapter in chapters_need_revision %}
-                    <tr>
-                        <td><span class="badge badge-primary">{{ chapter.subject }}</span></td>
-                        <td><strong>{{ chapter.chapter_name }}</strong></td>
-                        <td>{{ chapter.revision_count }}×</td>
-                        <td>{{ chapter.last_revised_date.strftime('%d/%m/%Y') if chapter.last_revised_date else 'Never' }}</td>
-                        <td>
-                            {% if chapter.last_revised_date %}
-                                {% set days_ago = (now - chapter.last_revised_date).days %}
-                                <span class="badge badge-warning">{{ days_ago }} days</span>
-                            {% else %}
-                                <span class="text-muted">-</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-success log-revision-btn" 
-                                    data-chapter-id="{{ chapter.id }}"
-                                    data-chapter-name="{{ chapter.chapter_name }}">
-                                Revise Now
-                            </button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-{% endif %}
-
-<!-- Recent Revision History -->
-{% if recent_revisions|length > 0 %}
-<div class="card" style="margin-bottom: 2rem;">
-    <div class="card-header">
-        <h3 class="card-title">📜 Recent Revision History</h3>
-    </div>
-    <div class="card-body" style="padding: 0;">
-        <div class="table-container">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Date & Time</th>
-                        <th>Subject</th>
-                        <th>Chapter</th>
-                        <th>Revision #</th>
-                        <th>Confidence</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for revision in recent_revisions %}
-                    <tr>
-                        <td>{{ revision.revision_date.strftime('%d/%m/%Y %I:%M %p') }}</td>
-                        <td><span class="badge badge-primary">{{ revision.chapter.subject }}</span></td>
-                        <td><strong>{{ revision.chapter.chapter_name }}</strong></td>
-                        <td>{{ revision.revision_number }}×</td>
-                        <td>
-                            {% if revision.confidence_level %}
-                                {% if revision.confidence_level >= 4 %}
-                                    <span class="badge badge-success">{{ revision.confidence_level }}/5</span>
-                                {% elif revision.confidence_level >= 3 %}
-                                    <span class="badge badge-warning">{{ revision.confidence_level }}/5</span>
-                                {% else %}
-                                    <span class="badge badge-danger">{{ revision.confidence_level }}/5</span>
-                                {% endif %}
-                            {% else %}
-                                <span class="text-muted">-</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if revision.notes %}
-                                <details>
-                                    <summary style="cursor: pointer; color: var(--color-primary);">View</summary>
-                                    <p style="margin-top: 0.5rem; font-size: 0.875rem;">{{ revision.notes }}</p>
-                                </details>
-                            {% else %}
-                                <span class="text-muted">-</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-{% endif %}
-
-<!-- All Chapters with Revision Stats -->
 <div class="card">
-    <div class="card-header">
-        <h3 class="card-title">📚 All Chapters - Revision Overview</h3>
-    </div>
-    <div class="card-body" style="padding: 0;">
-        <div class="table-container">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Subject</th>
-                        <th>Chapter</th>
-                        <th>Status</th>
-                        <th>Revision Count</th>
-                        <th>Last Revised</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for chapter in chapters %}
-                    <tr>
-                        <td><span class="badge badge-primary">{{ chapter.subject }}</span></td>
-                        <td><strong>{{ chapter.chapter_name }}</strong></td>
-                        <td>
-                            {% if chapter.is_completed %}
-                                <span class="badge badge-success">✓ Completed</span>
-                            {% elif chapter.revised %}
-                                <span class="badge badge-warning">In Progress</span>
-                            {% else %}
-                                <span class="badge badge-secondary">Not Started</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if chapter.revision_count > 0 %}
-                                <span class="revision-badge">{{ chapter.revision_count }}×</span>
-                            {% else %}
-                                <span class="text-muted">0×</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if chapter.last_revised_date %}
-                                {{ chapter.last_revised_date.strftime('%d/%m/%Y') }}
-                                <br><small class="text-muted">
-                                    {% set days_ago = (now - chapter.last_revised_date).days %}
-                                    {{ days_ago }} day{{ 's' if days_ago != 1 else '' }} ago
-                                </small>
-                            {% else %}
-                                <span class="text-muted">Never</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-secondary log-revision-btn" 
-                                    data-chapter-id="{{ chapter.id }}"
-                                    data-chapter-name="{{ chapter.chapter_name }}">
-                                Log Revision
-                            </button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <h2 style="margin-bottom: 1.5rem;">Track Your Revision Progress</h2>
+    
+    <form method="POST" action="{{ url_for('add_revision') }}" novalidate>
+        <div class="form-group">
+            <label for="chapter" class="form-label">Chapter</label>
+            <select id="chapter" name="chapter" class="form-control" required>
+                <option value="">Select a chapter</option>
+                {% for subject, chapters in NEET_SYLLABUS.items() %}
+                    <optgroup label="{{ subject }}">
+                        {% for chapter in chapters %}
+                            <option value="{{ subject }}:{{ chapter }}">{{ chapter }}</option>
+                        {% endfor %}
+                    </optgroup>
+                {% endfor %}
+            </select>
         </div>
-    </div>
+        
+        <div class="form-group">
+            <label for="confidence" class="form-label">Confidence Level</label>
+            <select id="confidence" name="confidence" class="form-control">
+                <option value="">Select</option>
+                <option value="1">⭐ Very Low</option>
+                <option value="2">⭐⭐ Low</option>
+                <option value="3">⭐⭐⭐ Medium</option>
+                <option value="4">⭐⭐⭐⭐ High</option>
+                <option value="5">⭐⭐⭐⭐⭐ Very High</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="notes" class="form-label">Revision Notes</label>
+            <textarea id="notes" name="notes" class="form-control" rows="3" placeholder="What did you revise? Any difficulties?"></textarea>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Log Revision</button>
+    </form>
 </div>
 
-<!-- Empty State -->
-{% if chapters|length == 0 %}
 <div class="card">
-    <div class="card-body" style="text-align: center; padding: 3rem;">
-        <div style="font-size: 4rem; margin-bottom: 1rem;">🔄</div>
-        <h3>No Chapters Found</h3>
-        <p class="text-muted">Your chapter progress will appear here once you start tracking.</p>
-        <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Go to Dashboard</a>
-    </div>
+    <h2 style="margin-bottom: 1.5rem;">Revision History</h2>
+    
+    {% if revisions %}
+    <table>
+        <thead>
+            <tr>
+                <th>Chapter</th>
+                <th>Date</th>
+                <th>Confidence</th>
+                <th>Notes</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rev in revisions %}
+            <tr>
+                <td>{{ rev.chapter_name }}</td>
+                <td>{{ rev.revision_date.strftime('%Y-%m-%d') }}</td>
+                <td>
+                    {% for i in range(rev.confidence_level|int) %}
+                        ⭐
+                    {% endfor %}
+                </td>
+                <td>{{ rev.notes[:50] if rev.notes else '-' }}</td>
+                <td>
+                    <form method="POST" action="{{ url_for('delete_revision', rev_id=rev.id) }}" style="display: inline;">
+                        <button type="submit" class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" onclick="return confirm('Delete this revision?')">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color: #6b7280;">No revision logs yet.</p>
+    {% endif %}
 </div>
-{% endif %}
 
+<div class="card">
+    <h2 style="margin-bottom: 1.5rem;">Revision Analytics</h2>
+    <canvas id="revisionChart" style="max-height: 300px;"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const revisionData = {{ revision_chart_data|safe }};
+const dates = Object.keys(revisionData).sort();
+const counts = dates.map(d => revisionData[d]);
+
+new Chart(document.getElementById('revisionChart'), {
+    type: 'bar',
+    data: {
+        labels: dates,
+        datasets: [{
+            label: 'Revisions per Day',
+            data: counts,
+            backgroundColor: '#8b5cf6'
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            title: { display: true, text: 'Revision Frequency' }
+        }
+    }
+});
+</script>
 {% endblock %}
